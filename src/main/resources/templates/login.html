@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login – Winter Olympics</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0d1b6e 0%, #1565c0 60%, #29b6f6 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+            padding: 48px 40px;
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .logo h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #0d1b6e;
+            letter-spacing: 0.5px;
+        }
+
+        .logo p {
+            font-size: 0.85rem;
+            color: #90a4ae;
+            margin-top: 4px;
+        }
+
+        h2 {
+            font-size: 1.25rem;
+            color: #1a237e;
+            margin-bottom: 24px;
+        }
+
+        .field {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #455a64;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        input {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1.5px solid #cfd8dc;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            color: #212121;
+            transition: border-color 0.2s;
+            outline: none;
+        }
+
+        input:focus { border-color: #1565c0; }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 13px;
+            background: linear-gradient(90deg, #1565c0, #1e88e5);
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: opacity 0.2s;
+        }
+
+        button[type="submit"]:hover { opacity: 0.9; }
+        button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 0.88rem;
+            margin-bottom: 16px;
+        }
+
+        .hidden { display: none; }
+
+        .footer {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 0.88rem;
+            color: #78909c;
+        }
+
+        .footer a {
+            color: #1565c0;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="logo">
+        <h1>&#10052; Winter Olympics</h1>
+        <p>Athlete Management System</p>
+    </div>
+
+    <h2>Sign In</h2>
+
+    <div id="error-msg" class="error hidden"></div>
+
+    <form id="login-form">
+        <div class="field">
+            <label for="username">Username</label>
+            <input type="text" id="username" placeholder="Enter your username" required autofocus>
+        </div>
+        <div class="field">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="Enter your password" required>
+        </div>
+        <button type="submit" id="submit-btn">Sign In</button>
+    </form>
+
+    <div class="footer">
+        Don't have an account? <a href="/register">Create one</a>
+    </div>
+</div>
+
+<script>
+    document.getElementById('login-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const errorEl = document.getElementById('error-msg');
+        const submitBtn = document.getElementById('submit-btn');
+
+        errorEl.classList.add('hidden');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Signing in…';
+
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    username: document.getElementById('username').value,
+                    password: document.getElementById('password').value
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                localStorage.setItem('accessToken', data.accessToken);
+                localStorage.setItem('refreshToken', data.refreshToken);
+                window.location.href = '/';
+            } else {
+                errorEl.textContent = 'Invalid username or password.';
+                errorEl.classList.remove('hidden');
+            }
+        } catch (err) {
+            errorEl.textContent = 'Could not reach the server. Please try again.';
+            errorEl.classList.remove('hidden');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Sign In';
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register – Winter Olympics</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0d1b6e 0%, #1565c0 60%, #29b6f6 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 32px 16px;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+            padding: 48px 40px;
+            width: 100%;
+            max-width: 480px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .logo h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #0d1b6e;
+            letter-spacing: 0.5px;
+        }
+
+        .logo p {
+            font-size: 0.85rem;
+            color: #90a4ae;
+            margin-top: 4px;
+        }
+
+        h2 {
+            font-size: 1.25rem;
+            color: #1a237e;
+            margin-bottom: 24px;
+        }
+
+        .row {
+            display: flex;
+            gap: 16px;
+        }
+
+        .row .field { flex: 1; }
+
+        .field {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #455a64;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1.5px solid #cfd8dc;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            color: #212121;
+            background: #fff;
+            transition: border-color 0.2s;
+            outline: none;
+            appearance: none;
+        }
+
+        input:focus, select:focus { border-color: #1565c0; }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 13px;
+            background: linear-gradient(90deg, #1565c0, #1e88e5);
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: opacity 0.2s;
+        }
+
+        button[type="submit"]:hover { opacity: 0.9; }
+        button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .alert {
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 0.88rem;
+            margin-bottom: 16px;
+        }
+
+        .alert.error { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+        .alert.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .hidden { display: none; }
+
+        .footer {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 0.88rem;
+            color: #78909c;
+        }
+
+        .footer a {
+            color: #1565c0;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="logo">
+        <h1>&#10052; Winter Olympics</h1>
+        <p>Athlete Management System</p>
+    </div>
+
+    <h2>Create Account</h2>
+
+    <div id="alert" class="alert hidden"></div>
+
+    <form id="register-form">
+        <div class="field">
+            <label for="username">Username</label>
+            <input type="text" id="username" placeholder="Choose a username" required autofocus>
+        </div>
+        <div class="field">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="Choose a password" required>
+        </div>
+
+        <div class="row">
+            <div class="field">
+                <label for="firstName">First Name</label>
+                <input type="text" id="firstName" placeholder="First name" required>
+            </div>
+            <div class="field">
+                <label for="lastName">Last Name</label>
+                <input type="text" id="lastName" placeholder="Last name" required>
+            </div>
+        </div>
+
+        <div class="field">
+            <label for="country">Country</label>
+            <input type="text" id="country" placeholder="e.g. Bulgaria" required>
+        </div>
+
+        <div class="row">
+            <div class="field">
+                <label for="sex">Sex</label>
+                <select id="sex" required>
+                    <option value="" disabled selected>Select</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="birthDate">Date of Birth</label>
+                <input type="date" id="birthDate" required>
+            </div>
+        </div>
+
+        <button type="submit" id="submit-btn">Create Account</button>
+    </form>
+
+    <div class="footer">
+        Already have an account? <a href="/login">Sign in</a>
+    </div>
+</div>
+
+<script>
+    document.getElementById('register-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const alertEl = document.getElementById('alert');
+        const submitBtn = document.getElementById('submit-btn');
+
+        alertEl.classList.add('hidden');
+        alertEl.className = 'alert hidden';
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Creating account…';
+
+        const birthDateStr = document.getElementById('birthDate').value;
+        const birthDate = new Date(birthDateStr).getTime();
+
+        try {
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    username: document.getElementById('username').value,
+                    password: document.getElementById('password').value,
+                    firstName: document.getElementById('firstName').value,
+                    lastName: document.getElementById('lastName').value,
+                    country: document.getElementById('country').value,
+                    sex: document.getElementById('sex').value,
+                    birthDate: birthDate
+                })
+            });
+
+            if (response.ok) {
+                alertEl.textContent = 'Account created! Redirecting to login…';
+                alertEl.className = 'alert success';
+                alertEl.classList.remove('hidden');
+                setTimeout(() => window.location.href = '/login', 1500);
+            } else {
+                const body = await response.text();
+                let msg = `Registration failed (HTTP ${response.status}).`;
+                if (response.status === 500) {
+                    msg = body
+                        ? `Server error: ${body}`
+                        : 'Server error – check that Keycloak is running at localhost:8081.';
+                } else if (response.status === 400) {
+                    msg = 'Invalid request – check that all fields are filled in correctly.';
+                } else if (response.status === 409) {
+                    msg = 'Username already taken. Please choose a different one.';
+                }
+                alertEl.textContent = msg;
+                alertEl.className = 'alert error';
+                alertEl.classList.remove('hidden');
+            }
+        } catch (err) {
+            alertEl.textContent = 'Could not reach the server. Please try again.';
+            alertEl.className = 'alert error';
+            alertEl.classList.remove('hidden');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Create Account';
+        }
+    });
+</script>
+</body>
+</html>
