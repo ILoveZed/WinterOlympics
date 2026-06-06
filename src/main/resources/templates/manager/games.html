@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Games Manager – Winter Olympics</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { min-height: 100vh; background: #e8edf5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #212121; }
+
+        main { max-width: 1000px; margin: 32px auto; padding: 0 24px; }
+
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+        .page-header h1 { font-size: 1.5rem; color: #0d1b6e; }
+
+        .alert { border-radius: 8px; padding: 11px 16px; font-size: 0.88rem; margin-bottom: 20px; }
+        .alert.error   { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+        .alert.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .hidden { display: none; }
+
+        /* Game cards */
+        .games-list { display: flex; flex-direction: column; gap: 20px; }
+
+        .game-card {
+            background: #fff; border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden;
+        }
+        .game-card-header {
+            background: linear-gradient(90deg, #0d1b6e, #1565c0);
+            color: #fff; padding: 16px 20px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .game-card-header .game-title { font-size: 1.05rem; font-weight: 700; }
+        .game-card-header .game-meta  { font-size: 0.82rem; opacity: 0.8; margin-top: 2px; }
+        .game-card-actions { display: flex; gap: 8px; }
+
+        .game-card-body { padding: 20px; }
+
+        .competitions-section h3 {
+            font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.5px; color: #455a64; margin-bottom: 12px;
+        }
+
+        .comp-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+
+        .comp-item {
+            background: #f7f9ff; border: 1px solid #e0e8ff;
+            border-radius: 8px; padding: 12px 16px;
+        }
+        .comp-item .comp-name { font-weight: 600; font-size: 0.92rem; }
+        .comp-item .comp-details { font-size: 0.82rem; color: #546e7a; margin-top: 4px; }
+
+        .badge {
+            display: inline-block; padding: 2px 9px; border-radius: 10px;
+            font-size: 0.72rem; font-weight: 600; margin-left: 6px;
+        }
+        .badge-male   { background: #e3f2fd; color: #1565c0; }
+        .badge-female { background: #fce4ec; color: #c2185b; }
+
+        .empty-comp { font-size: 0.85rem; color: #b0bec5; padding: 8px 0; }
+
+        /* Buttons */
+        button { cursor: pointer; border: none; border-radius: 6px; padding: 7px 14px; font-size: 0.82rem; font-weight: 600; transition: opacity 0.15s; }
+        button:hover { opacity: 0.85; }
+        button:disabled { opacity: 0.55; cursor: not-allowed; }
+        .btn-primary   { background: #1565c0; color: #fff; }
+        .btn-slalom    { background: #e8f5e9; color: #2e7d32; }
+        .btn-biathlon  { background: #fff3e0; color: #e65100; }
+        .btn-secondary { background: #e8edf5; color: #1565c0; }
+        .btn-danger    { background: #ffebee; color: #c62828; }
+        .btn-icon      { padding: 4px 10px; font-size: 0.78rem; }
+
+        /* Modal */
+        .overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+            display: flex; align-items: center; justify-content: center; z-index: 100;
+        }
+        .modal {
+            background: #fff; border-radius: 14px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.3);
+            padding: 36px 32px; width: 100%; max-width: 500px;
+            max-height: 90vh; overflow-y: auto;
+        }
+        .modal h2 { font-size: 1.1rem; color: #0d1b6e; margin-bottom: 22px; }
+        .field { margin-bottom: 16px; }
+        label { display: block; font-size: 0.8rem; font-weight: 600; color: #455a64; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 10px 12px; border: 1.5px solid #cfd8dc; border-radius: 7px; font-size: 0.92rem; color: #212121; background: #fff; outline: none; transition: border-color 0.2s; }
+        input:focus, select:focus { border-color: #1565c0; }
+        .row { display: flex; gap: 12px; }
+        .row .field { flex: 1; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+        #loading { text-align: center; padding: 48px; color: #78909c; }
+    </style>
+</head>
+<body>
+
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+
+<main>
+    <div id="alert-banner" class="alert hidden"></div>
+
+    <div class="page-header">
+        <h1>Olympic Games</h1>
+        <button class="btn-primary" onclick="openCreateGame()">+ New Game</button>
+    </div>
+
+    <div id="loading">Loading games…</div>
+    <div id="games-list" class="games-list hidden"></div>
+    <div id="empty-state" class="hidden" style="text-align:center;padding:48px;color:#90a4ae;">No games yet. Create the first one.</div>
+</main>
+
+<!-- Create Game Modal -->
+<div id="game-overlay" class="overlay hidden">
+    <div class="modal">
+        <h2>Create Olympic Game</h2>
+        <div id="game-alert" class="alert hidden"></div>
+        <div class="field">
+            <label>Name</label>
+            <input type="text" id="g-name" placeholder="e.g. Milan-Cortina 2026 Winter Olympics" required>
+        </div>
+        <div class="row">
+            <div class="field">
+                <label>Host City</label>
+                <input type="text" id="g-city" placeholder="City" required>
+            </div>
+            <div class="field">
+                <label>Country</label>
+                <input type="text" id="g-country" placeholder="Country" required>
+            </div>
+        </div>
+        <div class="field">
+            <label>Year</label>
+            <input type="text" id="g-year" placeholder="e.g. 2026" required>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="closeModal('game-overlay')">Cancel</button>
+            <button class="btn-primary" onclick="submitCreateGame()">Create</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Slalom Modal -->
+<div id="slalom-overlay" class="overlay hidden">
+    <div class="modal">
+        <h2>Add Ski Slalom Competition</h2>
+        <div id="slalom-alert" class="alert hidden"></div>
+        <div class="field">
+            <label>Competition Name</label>
+            <input type="text" id="s-name" placeholder="e.g. Men's Giant Slalom" required>
+        </div>
+        <div class="row">
+            <div class="field">
+                <label>Sex</label>
+                <select id="s-sex">
+                    <option value="MALE">Male</option>
+                    <option value="FEMALE">Female</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Minimum Age</label>
+                <input type="number" id="s-minAge" min="1" placeholder="e.g. 18" required>
+            </div>
+        </div>
+        <div class="row">
+            <div class="field">
+                <label>Run 1 – Competitors</label>
+                <input type="number" id="s-run1" min="1" placeholder="e.g. 50" required>
+            </div>
+            <div class="field">
+                <label>Run 2 – Competitors</label>
+                <input type="number" id="s-run2" min="1" placeholder="e.g. 30" required>
+                <p style="font-size:0.75rem;color:#90a4ae;margin-top:4px;">Must be less than Run 1.</p>
+            </div>
+        </div>
+        <div class="field">
+            <label>Date &amp; Time of Event</label>
+            <input type="datetime-local" id="s-timeOfEvent">
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="closeModal('slalom-overlay')">Cancel</button>
+            <button class="btn-slalom" onclick="submitAddSlalom()">Add Slalom</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Biathlon Modal -->
+<div id="biathlon-overlay" class="overlay hidden">
+    <div class="modal">
+        <h2>Add Biathlon Competition</h2>
+        <div id="biathlon-alert" class="alert hidden"></div>
+        <div class="field">
+            <label>Competition Name</label>
+            <input type="text" id="b-name" placeholder="e.g. Women's 10km Biathlon" required>
+        </div>
+        <div class="row">
+            <div class="field">
+                <label>Sex</label>
+                <select id="b-sex">
+                    <option value="MALE">Male</option>
+                    <option value="FEMALE">Female</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Minimum Age</label>
+                <input type="number" id="b-minAge" min="1" placeholder="e.g. 18" required>
+            </div>
+        </div>
+        <div class="row">
+            <div class="field">
+                <label>Competitors</label>
+                <input type="number" id="b-competitors" min="1" placeholder="e.g. 60" required>
+            </div>
+            <div class="field">
+                <label>Number of Laps</label>
+                <input type="number" id="b-laps" min="1" placeholder="e.g. 5" required>
+            </div>
+        </div>
+        <div class="row">
+            <div class="field">
+                <label>Shooting Stages</label>
+                <input type="number" id="b-shootings" min="1" placeholder="e.g. 4" required>
+            </div>
+            <div class="field">
+                <label>Laps Between Shootings</label>
+                <input type="number" id="b-lapsBetween" min="1" placeholder="e.g. 1" required>
+            </div>
+        </div>
+        <div class="field">
+            <label>Penalty per Miss (seconds)</label>
+            <input type="number" id="b-penalty" min="1" placeholder="e.g. 60" required>
+        </div>
+        <div class="field">
+            <label>Date &amp; Time of Event</label>
+            <input type="datetime-local" id="b-timeOfEvent">
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="closeModal('biathlon-overlay')">Cancel</button>
+            <button class="btn-biathlon" onclick="submitAddBiathlon()">Add Biathlon</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('accessToken');
+    if (!token) window.location.href = '/login';
+
+    let activeGameId = null;
+
+    async function api(method, path, body) {
+        const resp = await fetch('/api/manager' + path, {
+            method,
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: body !== undefined ? JSON.stringify(body) : undefined
+        });
+        if (resp.status === 401) { window.location.href = '/login'; return null; }
+        return resp;
+    }
+
+    function showBanner(msg, type = 'error') {
+        const el = document.getElementById('alert-banner');
+        el.textContent = msg; el.className = 'alert ' + type; el.classList.remove('hidden');
+        setTimeout(() => el.classList.add('hidden'), 5000);
+    }
+
+    function showModalAlert(id, msg, type = 'error') {
+        const el = document.getElementById(id);
+        el.textContent = msg; el.className = 'alert ' + type; el.classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).classList.add('hidden');
+        activeGameId = null;
+    }
+
+    // ── Load games ────────────────────────────────────────────────────────────
+
+    async function loadGames() {
+        const resp = await api('GET', '/games');
+        if (!resp) return;
+        document.getElementById('loading').classList.add('hidden');
+        if (!resp.ok) { showBanner('Failed to load games (HTTP ' + resp.status + ').'); return; }
+
+        const games = await resp.json();
+        const list = document.getElementById('games-list');
+
+        if (games.length === 0) {
+            document.getElementById('empty-state').classList.remove('hidden');
+            return;
+        }
+        list.classList.remove('hidden');
+        list.innerHTML = '';
+        games.forEach(renderGame);
+    }
+
+    function renderGame(g) {
+        const list = document.getElementById('games-list');
+        const card = document.createElement('div');
+        card.className = 'game-card';
+        card.id = 'game-' + g.id;
+
+        const slalomHtml = g.skiSlaloms.length
+            ? g.skiSlaloms.map(s => `
+                <div class="comp-item" id="slalom-${s.id}" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+                    <div>
+                        <div class="comp-name">🎿 ${escHtml(s.name)}
+                            <span class="badge badge-${s.sex.toLowerCase()}">${s.sex}</span>
+                        </div>
+                        <div class="comp-details">
+                            Min age: ${s.minAge} &bull;
+                            Run 1: ${s.run1Competitors} competitors &bull;
+                            Run 2: ${s.run2Competitors} competitors${s.timeOfEvent ? ' &bull; ' + s.timeOfEvent.replace('T', ' ') : ''}
+                        </div>
+                    </div>
+                    <button class="btn-danger btn-icon" onclick="deleteSlalom(${g.id},${s.id},this)">Delete</button>
+                </div>`).join('')
+            : '<p class="empty-comp">No slalom competitions yet.</p>';
+
+        const biathlonHtml = g.biathlons.length
+            ? g.biathlons.map(b => `
+                <div class="comp-item" id="biathlon-${b.id}" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+                    <div>
+                        <div class="comp-name">🎯 ${escHtml(b.name)}
+                            <span class="badge badge-${b.sex.toLowerCase()}">${b.sex}</span>
+                        </div>
+                        <div class="comp-details">
+                            Min age: ${b.minAge} &bull;
+                            ${b.numCompetitors} competitors &bull;
+                            ${b.numLaps} laps &bull;
+                            ${b.numShootings} shooting stages &bull;
+                            ${b.lapsBetweenShootings} lap(s) between shootings &bull;
+                            Penalty: ${b.penaltyTimeSeconds}s/miss${b.timeOfEvent ? ' &bull; ' + b.timeOfEvent.replace('T', ' ') : ''}
+                        </div>
+                    </div>
+                    <button class="btn-danger btn-icon" onclick="deleteBiathlon(${g.id},${b.id},this)">Delete</button>
+                </div>`).join('')
+            : '<p class="empty-comp">No biathlon competitions yet.</p>';
+
+        card.innerHTML = `
+            <div class="game-card-header">
+                <div>
+                    <div class="game-title">${escHtml(g.name)}</div>
+                    <div class="game-meta">${escHtml(g.city || '')}, ${escHtml(g.country || '')} &bull; ${escHtml(g.year || '')}</div>
+                </div>
+                <div class="game-card-actions">
+                    <button class="btn-slalom"   onclick="openAddSlalom(${g.id})">+ Slalom</button>
+                    <button class="btn-biathlon" onclick="openAddBiathlon(${g.id})">+ Biathlon</button>
+                    <button class="btn-danger"   onclick="deleteGame(${g.id}, this)">Delete Game</button>
+                </div>
+            </div>
+            <div class="game-card-body">
+                <div class="competitions-section">
+                    <h3>Ski Slalom</h3>
+                    <div class="comp-list">${slalomHtml}</div>
+                    <h3>Biathlon</h3>
+                    <div class="comp-list">${biathlonHtml}</div>
+                </div>
+            </div>`;
+        list.appendChild(card);
+    }
+
+    function escHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Create game ───────────────────────────────────────────────────────────
+
+    function openCreateGame() {
+        ['g-name','g-city','g-country','g-year'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('game-alert').classList.add('hidden');
+        document.getElementById('game-overlay').classList.remove('hidden');
+    }
+
+    async function submitCreateGame() {
+        const resp = await api('POST', '/games', {
+            name:    document.getElementById('g-name').value,
+            city:    document.getElementById('g-city').value,
+            country: document.getElementById('g-country').value,
+            year:    document.getElementById('g-year').value
+        });
+        if (!resp) return;
+        if (resp.ok) {
+            closeModal('game-overlay');
+            showBanner('Game created.', 'success');
+            loadGames();
+        } else {
+            const body = await resp.text();
+            showModalAlert('game-alert', body || 'Failed to create game.');
+        }
+    }
+
+    // ── Add slalom ────────────────────────────────────────────────────────────
+
+    function openAddSlalom(gameId) {
+        activeGameId = gameId;
+        ['s-name','s-minAge','s-run1','s-run2','s-timeOfEvent'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('slalom-alert').classList.add('hidden');
+        document.getElementById('slalom-overlay').classList.remove('hidden');
+    }
+
+    async function submitAddSlalom() {
+        const run1 = parseInt(document.getElementById('s-run1').value);
+        const run2 = parseInt(document.getElementById('s-run2').value);
+        if (run2 >= run1) {
+            showModalAlert('slalom-alert', 'Run 2 competitors must be less than Run 1 competitors.');
+            return;
+        }
+        const resp = await api('POST', '/games/' + activeGameId + '/slalom', {
+            name:            document.getElementById('s-name').value,
+            sex:             document.getElementById('s-sex').value,
+            minAge:          parseInt(document.getElementById('s-minAge').value),
+            run1Competitors: run1,
+            run2Competitors: run2,
+            timeOfEvent:     document.getElementById('s-timeOfEvent').value || null
+        });
+        if (!resp) return;
+        if (resp.ok) {
+            closeModal('slalom-overlay');
+            showBanner('Slalom competition added.', 'success');
+            loadGames();
+        } else {
+            const body = await resp.text();
+            showModalAlert('slalom-alert', body || 'Failed to add slalom.');
+        }
+    }
+
+    // ── Delete ────────────────────────────────────────────────────────────────
+
+    async function deleteGame(gameId, btn) {
+        if (!confirm('Delete this game and all its competitions?')) return;
+        btn.disabled = true;
+        const resp = await api('DELETE', '/games/' + gameId);
+        if (!resp) return;
+        if (resp.ok) {
+            document.getElementById('game-' + gameId)?.remove();
+            if (!document.querySelector('.game-card')) {
+                document.getElementById('games-list').classList.add('hidden');
+                document.getElementById('empty-state').classList.remove('hidden');
+            }
+        } else {
+            btn.disabled = false;
+            showBanner('Failed to delete game.');
+        }
+    }
+
+    async function deleteSlalom(gameId, slalomId, btn) {
+        if (!confirm('Delete this slalom competition?')) return;
+        btn.disabled = true;
+        const resp = await api('DELETE', '/games/' + gameId + '/slalom/' + slalomId);
+        if (!resp) return;
+        if (resp.ok) {
+            document.getElementById('slalom-' + slalomId)?.remove();
+        } else {
+            btn.disabled = false;
+            showBanner('Failed to delete slalom.');
+        }
+    }
+
+    async function deleteBiathlon(gameId, biathlonId, btn) {
+        if (!confirm('Delete this biathlon competition?')) return;
+        btn.disabled = true;
+        const resp = await api('DELETE', '/games/' + gameId + '/biathlon/' + biathlonId);
+        if (!resp) return;
+        if (resp.ok) {
+            document.getElementById('biathlon-' + biathlonId)?.remove();
+        } else {
+            btn.disabled = false;
+            showBanner('Failed to delete biathlon.');
+        }
+    }
+
+    // ── Add biathlon ──────────────────────────────────────────────────────────
+
+    function openAddBiathlon(gameId) {
+        activeGameId = gameId;
+        ['b-name','b-minAge','b-competitors','b-laps','b-shootings','b-lapsBetween','b-penalty','b-timeOfEvent']
+            .forEach(id => document.getElementById(id).value = '');
+        document.getElementById('biathlon-alert').classList.add('hidden');
+        document.getElementById('biathlon-overlay').classList.remove('hidden');
+    }
+
+    async function submitAddBiathlon() {
+        const resp = await api('POST', '/games/' + activeGameId + '/biathlon', {
+            name:                document.getElementById('b-name').value,
+            sex:                 document.getElementById('b-sex').value,
+            minAge:              parseInt(document.getElementById('b-minAge').value),
+            numCompetitors:      parseInt(document.getElementById('b-competitors').value),
+            numLaps:             parseInt(document.getElementById('b-laps').value),
+            numShootings:        parseInt(document.getElementById('b-shootings').value),
+            lapsBetweenShootings:parseInt(document.getElementById('b-lapsBetween').value),
+            penaltyTimeSeconds:  parseInt(document.getElementById('b-penalty').value),
+            timeOfEvent:         document.getElementById('b-timeOfEvent').value || null
+        });
+        if (!resp) return;
+        if (resp.ok) {
+            closeModal('biathlon-overlay');
+            showBanner('Biathlon competition added.', 'success');
+            loadGames();
+        } else {
+            const body = await resp.text();
+            showModalAlert('biathlon-alert', body || 'Failed to add biathlon.');
+        }
+    }
+
+    loadGames();
+</script>
+</body>
+</html>

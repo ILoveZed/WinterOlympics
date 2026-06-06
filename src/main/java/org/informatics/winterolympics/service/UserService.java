@@ -14,9 +14,12 @@ import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.informatics.winterolympics.dto.UpdateProfileRequest;
+import org.informatics.winterolympics.dto.UserProfileDto;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.http.MediaType;
@@ -137,6 +140,36 @@ public class UserService {
                 expiresIn,
                 tokenType
         );
+    }
+
+    public UserProfileDto getUserProfile(String keycloakUserId) {
+        UserRepresentation ku = keycloak.realm(realm).users().get(keycloakUserId).toRepresentation();
+        User user = userRepository.findByKeycloakUserId(keycloakUserId).orElseThrow();
+        Athlete athlete = user.getAthlete();
+        return new UserProfileDto(
+                ku.getUsername(),
+                ku.getFirstName(),
+                ku.getLastName(),
+                athlete != null ? athlete.getCountry() : null,
+                athlete != null ? athlete.getSex() : null,
+                athlete != null && athlete.getDateOfBirth() != null ? athlete.getDateOfBirth().toString() : null
+        );
+    }
+
+    @Transactional
+    public void updateProfile(String keycloakUserId, UpdateProfileRequest request) {
+        UserRepresentation ku = keycloak.realm(realm).users().get(keycloakUserId).toRepresentation();
+        ku.setFirstName(request.firstName());
+        ku.setLastName(request.lastName());
+        keycloak.realm(realm).users().get(keycloakUserId).update(ku);
+
+        User user = userRepository.findByKeycloakUserId(keycloakUserId).orElseThrow();
+        Athlete athlete = user.getAthlete();
+        if (athlete != null) {
+            athlete.setName(request.firstName() + " " + request.lastName());
+            athlete.setCountry(request.country());
+        }
+        userRepository.save(user);
     }
 
     public void addUserToDb (RegisterRequest request, String keycloakUserId){

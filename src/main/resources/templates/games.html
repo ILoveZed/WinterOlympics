@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Olympic Games – Winter Olympics</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { min-height: 100vh; background: #e8edf5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #212121; }
+
+        main { max-width: 1000px; margin: 32px auto; padding: 0 24px; }
+
+        .page-header { margin-bottom: 24px; }
+        .page-header h1 { font-size: 1.5rem; color: #0d1b6e; }
+        .page-header p  { font-size: 0.88rem; color: #78909c; margin-top: 4px; }
+
+        .alert { border-radius: 8px; padding: 11px 16px; font-size: 0.88rem; margin-bottom: 20px; }
+        .alert.error   { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+        .alert.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .hidden { display: none; }
+
+        .games-list { display: flex; flex-direction: column; gap: 20px; }
+
+        .game-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden; }
+        .game-card-header {
+            background: linear-gradient(90deg, #0d1b6e, #1565c0);
+            color: #fff; padding: 16px 20px;
+        }
+        .game-card-header .game-title { font-size: 1.05rem; font-weight: 700; }
+        .game-card-header .game-meta  { font-size: 0.82rem; opacity: 0.8; margin-top: 2px; }
+        .game-card-body { padding: 20px; }
+
+        .competitions-section h3 {
+            font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.5px; color: #455a64; margin-bottom: 12px;
+        }
+        .comp-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+
+        .comp-item {
+            background: #f7f9ff; border: 1px solid #e0e8ff;
+            border-radius: 8px; padding: 12px 16px;
+            display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+        }
+        .comp-item .comp-name { font-weight: 600; font-size: 0.92rem; }
+        .comp-item .comp-details { font-size: 0.82rem; color: #546e7a; margin-top: 4px; }
+
+        .badge {
+            display: inline-block; padding: 2px 9px; border-radius: 10px;
+            font-size: 0.72rem; font-weight: 600; margin-left: 6px;
+        }
+        .badge-male   { background: #e3f2fd; color: #1565c0; }
+        .badge-female { background: #fce4ec; color: #c2185b; }
+
+        .empty-comp { font-size: 0.85rem; color: #b0bec5; padding: 8px 0; }
+
+        /* Apply controls */
+        .apply-area { flex-shrink: 0; display: flex; align-items: center; }
+
+        button.btn-apply, a.btn-apply {
+            cursor: pointer; border: none; border-radius: 6px; padding: 7px 14px;
+            font-size: 0.82rem; font-weight: 600; transition: opacity 0.15s;
+            background: #1565c0; color: #fff; text-decoration: none;
+            display: inline-block;
+        }
+        button.btn-apply:hover, a.btn-apply:hover { opacity: 0.85; }
+        button.btn-apply:disabled { opacity: 0.55; cursor: not-allowed; }
+        a.btn-login { background: #e8edf5; color: #1565c0; border: 1px solid #c5cae9; }
+
+        .status-badge {
+            display: inline-block; padding: 5px 12px; border-radius: 10px;
+            font-size: 0.78rem; font-weight: 700; letter-spacing: 0.3px;
+        }
+        .badge-pending  { background: #fff8e1; color: #f57f17; border: 1px solid #ffe082; }
+        .badge-accepted { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .badge-rejected { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+
+        #loading { text-align: center; padding: 48px; color: #78909c; }
+    </style>
+</head>
+<body>
+
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+
+<main>
+    <div id="alert-banner" class="alert hidden"></div>
+
+    <div class="page-header">
+        <h1>Olympic Games</h1>
+        <p id="subtitle">Browse competitions and apply to participate.</p>
+    </div>
+
+    <div id="loading">Loading games…</div>
+    <div id="games-list" class="games-list hidden"></div>
+    <div id="empty-state" class="hidden" style="text-align:center;padding:48px;color:#90a4ae;">No games or competitions available yet.</div>
+</main>
+
+<script>
+    const token = localStorage.getItem('accessToken');
+    const isLoggedIn = !!token;
+    let myRegMap = {};
+
+    if (!isLoggedIn) {
+        document.getElementById('subtitle').textContent = 'Browse competitions. Log in to apply.';
+    }
+
+    function showBanner(msg, type = 'error') {
+        const el = document.getElementById('alert-banner');
+        el.textContent = msg; el.className = 'alert ' + type; el.classList.remove('hidden');
+        setTimeout(() => el.classList.add('hidden'), 6000);
+    }
+
+    async function loadData() {
+        try {
+            const gamesResp = await fetch('/api/public/games');
+            if (!gamesResp.ok) { showBanner('Failed to load games.'); return; }
+            const games = await gamesResp.json();
+
+            if (isLoggedIn) {
+                const regsResp = await fetch('/api/me/registrations', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (regsResp.status === 401) {
+                    localStorage.removeItem('accessToken');
+                    window.location.reload();
+                    return;
+                }
+                if (regsResp.ok) {
+                    const regs = await regsResp.json();
+                    regs.forEach(r => {
+                        myRegMap[r.competitionType + '-' + r.competitionId] = r;
+                    });
+                }
+            }
+
+            document.getElementById('loading').classList.add('hidden');
+
+            if (games.length === 0) {
+                document.getElementById('empty-state').classList.remove('hidden');
+                return;
+            }
+
+            const list = document.getElementById('games-list');
+            list.classList.remove('hidden');
+            games.forEach(g => renderGame(g, list));
+        } catch (e) {
+            showBanner('Failed to load data: ' + e.message);
+        }
+    }
+
+    function applyControl(type, compId) {
+        const key = type + '-' + compId;
+        const reg = myRegMap[key];
+        if (!isLoggedIn) {
+            return `<a href="/login" class="btn-apply btn-login btn-icon">Login to Apply</a>`;
+        }
+        if (reg) {
+            const cls = 'badge-' + reg.status.toLowerCase();
+            return `<span class="status-badge ${cls}">${reg.status}</span>`;
+        }
+        return `<button id="apply-${key}" class="btn-apply" onclick="applyFor('${type}',${compId})">Apply</button>`;
+    }
+
+    function renderGame(g, list) {
+        const card = document.createElement('div');
+        card.className = 'game-card';
+
+        const hasSlaloms   = g.skiSlaloms && g.skiSlaloms.length > 0;
+        const hasBiathlons = g.biathlons  && g.biathlons.length  > 0;
+
+        const slalomHtml = hasSlaloms
+            ? g.skiSlaloms.map(s => `
+                <div class="comp-item">
+                    <div>
+                        <div class="comp-name">🎿 ${escHtml(s.name)}
+                            <span class="badge badge-${s.sex.toLowerCase()}">${s.sex}</span>
+                        </div>
+                        <div class="comp-details">
+                            Min age: ${s.minAge} &bull;
+                            Run 1: ${s.run1Competitors} competitors &bull;
+                            Run 2: ${s.run2Competitors} competitors${s.timeOfEvent ? ' &bull; ' + s.timeOfEvent.replace('T', ' ').substring(0,16) : ''}
+                        </div>
+                    </div>
+                    <div class="apply-area">${applyControl('SLALOM', s.id)}</div>
+                </div>`).join('')
+            : '<p class="empty-comp">No slalom competitions.</p>';
+
+        const biathlonHtml = hasBiathlons
+            ? g.biathlons.map(b => `
+                <div class="comp-item">
+                    <div>
+                        <div class="comp-name">🎯 ${escHtml(b.name)}
+                            <span class="badge badge-${b.sex.toLowerCase()}">${b.sex}</span>
+                        </div>
+                        <div class="comp-details">
+                            Min age: ${b.minAge} &bull;
+                            ${b.numCompetitors} competitors &bull;
+                            ${b.numLaps} laps &bull;
+                            ${b.numShootings} shooting stages &bull;
+                            Penalty: ${b.penaltyTimeSeconds}s/miss${b.timeOfEvent ? ' &bull; ' + b.timeOfEvent.replace('T', ' ').substring(0,16) : ''}
+                        </div>
+                    </div>
+                    <div class="apply-area">${applyControl('BIATHLON', b.id)}</div>
+                </div>`).join('')
+            : '<p class="empty-comp">No biathlon competitions.</p>';
+
+        card.innerHTML = `
+            <div class="game-card-header">
+                <div class="game-title">${escHtml(g.name)}</div>
+                <div class="game-meta">${escHtml(g.city || '')}, ${escHtml(g.country || '')} &bull; ${escHtml(g.year || '')}</div>
+            </div>
+            <div class="game-card-body">
+                <div class="competitions-section">
+                    <h3>Ski Slalom</h3>
+                    <div class="comp-list">${slalomHtml}</div>
+                    <h3>Biathlon</h3>
+                    <div class="comp-list">${biathlonHtml}</div>
+                </div>
+            </div>`;
+        list.appendChild(card);
+    }
+
+    async function applyFor(type, compId) {
+        const key = type + '-' + compId;
+        const btn = document.getElementById('apply-' + key);
+        if (btn) btn.disabled = true;
+
+        const path = type === 'SLALOM' ? '/slalom/' + compId : '/biathlon/' + compId;
+        const resp = await fetch('/api/me/apply' + path, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+
+        if (resp.ok) {
+            myRegMap[key] = { status: 'PENDING' };
+            if (btn) {
+                const span = document.createElement('span');
+                span.className = 'status-badge badge-pending';
+                span.textContent = 'PENDING';
+                btn.replaceWith(span);
+            }
+        } else if (resp.status === 401) {
+            window.location.href = '/login';
+        } else {
+            const msg = await resp.text();
+            showBanner(msg || 'Failed to apply.');
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    function escHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    loadData();
+</script>
+</body>
+</html>

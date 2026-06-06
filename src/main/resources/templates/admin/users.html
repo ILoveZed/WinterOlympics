@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management – Winter Olympics Admin</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            min-height: 100vh;
+            background: #e8edf5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #212121;
+        }
+
+        main { max-width: 1100px; margin: 32px auto; padding: 0 24px; }
+
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .page-header h1 { font-size: 1.5rem; color: #0d1b6e; }
+
+        .alert {
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 0.88rem;
+            margin-bottom: 20px;
+        }
+        .alert.error { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+        .alert.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .hidden { display: none; }
+
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+
+        table { width: 100%; border-collapse: collapse; }
+
+        thead { background: #f0f4ff; }
+        th {
+            padding: 14px 16px;
+            text-align: left;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #455a64;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.92rem;
+            vertical-align: middle;
+        }
+
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #f7f9ff; }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-right: 4px;
+        }
+        .badge-admin   { background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; }
+        .badge-user    { background: #f3e5f5; color: #6a1b9a; border: 1px solid #ce93d8; }
+        .badge-manager { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+
+        .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        button {
+            cursor: pointer;
+            border: none;
+            border-radius: 6px;
+            padding: 7px 14px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            transition: opacity 0.15s;
+        }
+        button:hover { opacity: 0.85; }
+
+        .btn-primary { background: #1565c0; color: #fff; }
+        .btn-secondary { background: #e8edf5; color: #1565c0; }
+        .btn-warning { background: #fff3e0; color: #e65100; }
+        .btn-danger  { background: #ffebee; color: #c62828; }
+
+        /* Modal */
+        .overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.45);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100;
+        }
+
+        .modal {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.3);
+            padding: 36px 32px;
+            width: 100%;
+            max-width: 480px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal h2 { font-size: 1.15rem; color: #0d1b6e; margin-bottom: 24px; }
+
+        .field { margin-bottom: 16px; }
+        label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #455a64;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            margin-bottom: 5px;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1.5px solid #cfd8dc;
+            border-radius: 7px;
+            font-size: 0.92rem;
+            outline: none;
+            transition: border-color 0.2s;
+            background: #fff;
+        }
+        input:focus, select:focus { border-color: #1565c0; }
+
+        .row { display: flex; gap: 12px; }
+        .row .field { flex: 1; }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .role-checkboxes { display: flex; gap: 24px; padding: 8px 0; }
+        .role-checkboxes label {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 0.92rem; text-transform: none; letter-spacing: 0;
+            cursor: pointer; font-weight: 500;
+        }
+        .role-checkboxes input[type="checkbox"] {
+            width: 16px; height: 16px; padding: 0;
+            accent-color: #1565c0;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px 16px;
+            color: #90a4ae;
+            font-size: 0.95rem;
+        }
+
+        #loading { text-align: center; padding: 48px; color: #78909c; }
+    </style>
+</head>
+<body>
+
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+
+<main>
+    <div id="alert-banner" class="alert hidden"></div>
+
+    <div class="page-header">
+        <h1>User Management</h1>
+        <button class="btn-primary" onclick="openCreateModal()">+ Create User</button>
+    </div>
+
+    <div class="card">
+        <div id="loading">Loading users…</div>
+        <table id="users-table" class="hidden">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Roles</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="users-tbody"></tbody>
+        </table>
+        <div id="empty-state" class="empty-state hidden">No users found.</div>
+    </div>
+</main>
+
+<!-- Create User Modal -->
+<div id="create-overlay" class="overlay hidden">
+    <div class="modal">
+        <h2>Create User</h2>
+        <div id="create-alert" class="alert hidden"></div>
+        <form id="create-form">
+            <div class="field">
+                <label>Username</label>
+                <input type="text" id="c-username" placeholder="Username" required>
+            </div>
+            <div class="field">
+                <label>Password</label>
+                <input type="password" id="c-password" placeholder="Password" required>
+            </div>
+            <div class="row">
+                <div class="field">
+                    <label>First Name</label>
+                    <input type="text" id="c-firstName" placeholder="First name" required>
+                </div>
+                <div class="field">
+                    <label>Last Name</label>
+                    <input type="text" id="c-lastName" placeholder="Last name" required>
+                </div>
+            </div>
+            <div class="field">
+                <label>Country</label>
+                <input type="text" id="c-country" placeholder="e.g. Bulgaria" required>
+            </div>
+            <div class="row">
+                <div class="field">
+                    <label>Sex</label>
+                    <select id="c-sex" required>
+                        <option value="" disabled selected>Select</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Date of Birth</label>
+                    <input type="date" id="c-birthDate" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeModal('create-overlay')">Cancel</button>
+                <button type="submit" class="btn-primary" id="c-submit">Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Change Password Modal -->
+<div id="password-overlay" class="overlay hidden">
+    <div class="modal">
+        <h2>Change Password</h2>
+        <p id="pwd-username-label" style="color:#546e7a;font-size:0.9rem;margin-bottom:20px;"></p>
+        <div id="pwd-alert" class="alert hidden"></div>
+        <div class="field">
+            <label>New Password</label>
+            <input type="password" id="pwd-new" placeholder="New password" required>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="closeModal('password-overlay')">Cancel</button>
+            <button class="btn-primary" onclick="submitChangePassword()">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Roles Modal -->
+<div id="roles-overlay" class="overlay hidden">
+    <div class="modal">
+        <h2>Assign Roles</h2>
+        <p id="roles-username-label" style="color:#546e7a;font-size:0.9rem;margin-bottom:20px;"></p>
+        <div id="roles-alert" class="alert hidden"></div>
+        <div class="role-checkboxes">
+            <label><input type="checkbox" id="role-user"    value="USER">    User</label>
+            <label><input type="checkbox" id="role-admin"   value="ADMIN">   Admin</label>
+            <label><input type="checkbox" id="role-manager" value="MANAGER"> Manager</label>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="closeModal('roles-overlay')">Cancel</button>
+            <button class="btn-primary" onclick="submitAssignRoles()">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-overlay" class="overlay hidden">
+    <div class="modal">
+        <h2>Delete User</h2>
+        <p style="color:#546e7a;margin-bottom:8px;">Are you sure you want to delete</p>
+        <p id="del-username-label" style="font-weight:700;font-size:1rem;margin-bottom:20px;"></p>
+        <p style="color:#c62828;font-size:0.88rem;margin-bottom:20px;">
+            This will permanently remove the account from Keycloak and the database.
+        </p>
+        <div id="del-alert" class="alert hidden"></div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="closeModal('delete-overlay')">Cancel</button>
+            <button class="btn-danger" onclick="submitDelete()">Delete</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('accessToken');
+    if (!token) window.location.href = '/login';
+
+    let activeKeycloakUserId = null;
+    let usersData = {};
+
+    // ── Auth helper ──────────────────────────────────────────────────────────
+
+    async function api(method, path, body) {
+        const resp = await fetch('/api/admin' + path, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: body !== undefined ? JSON.stringify(body) : undefined
+        });
+        if (resp.status === 401) { window.location.href = '/login'; return null; }
+        return resp;
+    }
+
+    function showBanner(msg, type = 'error') {
+        const el = document.getElementById('alert-banner');
+        el.textContent = msg;
+        el.className = 'alert ' + type;
+        el.classList.remove('hidden');
+        setTimeout(() => el.classList.add('hidden'), 5000);
+    }
+
+    function showModalAlert(id, msg, type = 'error') {
+        const el = document.getElementById(id);
+        el.textContent = msg;
+        el.className = 'alert ' + type;
+        el.classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).classList.add('hidden');
+        activeKeycloakUserId = null;
+    }
+
+    // ── Load users ───────────────────────────────────────────────────────────
+
+    async function loadUsers() {
+        const resp = await api('GET', '/users');
+        if (!resp) return;
+
+        document.getElementById('loading').classList.add('hidden');
+
+        if (!resp.ok) {
+            showBanner('Failed to load users (HTTP ' + resp.status + ').');
+            return;
+        }
+
+        const users = await resp.json();
+        const tbody = document.getElementById('users-tbody');
+        tbody.innerHTML = '';
+
+        if (users.length === 0) {
+            document.getElementById('empty-state').classList.remove('hidden');
+            return;
+        }
+
+        document.getElementById('users-table').classList.remove('hidden');
+
+        usersData = {};
+        users.forEach(u => {
+            usersData[u.keycloakUserId] = u;
+            const roleBadges = u.roles.length
+                ? u.roles.map(r => `<span class="badge badge-${r.toLowerCase()}">${r}</span>`).join('')
+                : '<span style="color:#90a4ae;font-size:0.85rem;">None</span>';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${escHtml(u.username)}</strong></td>
+                <td>${roleBadges}</td>
+                <td>
+                    <div class="actions">
+                        <button class="btn-secondary" onclick="openPasswordModal('${u.keycloakUserId}','${escHtml(u.username)}')">Change Password</button>
+                        <button class="btn-warning"   onclick="openRolesModal('${u.keycloakUserId}')">Assign Roles</button>
+                        <button class="btn-danger"    onclick="openDeleteModal('${u.keycloakUserId}','${escHtml(u.username)}')">Delete</button>
+                    </div>
+                </td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function escHtml(str) {
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Create user ──────────────────────────────────────────────────────────
+
+    function openCreateModal() {
+        document.getElementById('create-form').reset();
+        document.getElementById('create-alert').classList.add('hidden');
+        document.getElementById('create-overlay').classList.remove('hidden');
+    }
+
+    document.getElementById('create-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const btn = document.getElementById('c-submit');
+        btn.disabled = true;
+
+        const resp = await api('POST', '/users', {
+            username:  document.getElementById('c-username').value,
+            password:  document.getElementById('c-password').value,
+            firstName: document.getElementById('c-firstName').value,
+            lastName:  document.getElementById('c-lastName').value,
+            country:   document.getElementById('c-country').value,
+            sex:       document.getElementById('c-sex').value,
+            birthDate: new Date(document.getElementById('c-birthDate').value).getTime()
+        });
+
+        btn.disabled = false;
+        if (!resp) return;
+
+        if (resp.ok) {
+            closeModal('create-overlay');
+            showBanner('User created successfully.', 'success');
+            loadUsers();
+        } else {
+            const body = await resp.text();
+            showModalAlert('create-alert', body || 'Failed to create user (HTTP ' + resp.status + ').');
+        }
+    });
+
+    // ── Change password ──────────────────────────────────────────────────────
+
+    function openPasswordModal(keycloakUserId, username) {
+        activeKeycloakUserId = keycloakUserId;
+        document.getElementById('pwd-username-label').textContent = 'User: ' + username;
+        document.getElementById('pwd-new').value = '';
+        document.getElementById('pwd-alert').classList.add('hidden');
+        document.getElementById('password-overlay').classList.remove('hidden');
+    }
+
+    async function submitChangePassword() {
+        const newPassword = document.getElementById('pwd-new').value.trim();
+        if (!newPassword) { showModalAlert('pwd-alert', 'Password cannot be empty.'); return; }
+
+        const resp = await api('PUT', '/users/' + activeKeycloakUserId + '/password', { newPassword });
+        if (!resp) return;
+
+        if (resp.ok) {
+            closeModal('password-overlay');
+            showBanner('Password changed successfully.', 'success');
+        } else {
+            const body = await resp.text();
+            showModalAlert('pwd-alert', body || 'Failed to change password.');
+        }
+    }
+
+    // ── Assign roles ─────────────────────────────────────────────────────────
+
+    function openRolesModal(keycloakUserId) {
+        const u = usersData[keycloakUserId];
+        activeKeycloakUserId = keycloakUserId;
+        document.getElementById('roles-username-label').textContent = 'User: ' + u.username;
+        document.getElementById('role-user').checked    = u.roles.includes('USER');
+        document.getElementById('role-admin').checked   = u.roles.includes('ADMIN');
+        document.getElementById('role-manager').checked = u.roles.includes('MANAGER');
+        document.getElementById('roles-alert').classList.add('hidden');
+        document.getElementById('roles-overlay').classList.remove('hidden');
+    }
+
+    async function submitAssignRoles() {
+        const roles = [];
+        if (document.getElementById('role-user').checked)    roles.push('USER');
+        if (document.getElementById('role-admin').checked)   roles.push('ADMIN');
+        if (document.getElementById('role-manager').checked) roles.push('MANAGER');
+
+        const resp = await api('PUT', '/users/' + activeKeycloakUserId + '/roles', { roles });
+        if (!resp) return;
+
+        if (resp.ok) {
+            closeModal('roles-overlay');
+            showBanner('Roles updated successfully.', 'success');
+            loadUsers();
+        } else {
+            const body = await resp.text();
+            showModalAlert('roles-alert', body || 'Failed to assign roles.');
+        }
+    }
+
+    // ── Delete user ──────────────────────────────────────────────────────────
+
+    function openDeleteModal(keycloakUserId, username) {
+        activeKeycloakUserId = keycloakUserId;
+        document.getElementById('del-username-label').textContent = username;
+        document.getElementById('del-alert').classList.add('hidden');
+        document.getElementById('delete-overlay').classList.remove('hidden');
+    }
+
+    async function submitDelete() {
+        const resp = await api('DELETE', '/users/' + activeKeycloakUserId);
+        if (!resp) return;
+
+        if (resp.ok) {
+            closeModal('delete-overlay');
+            showBanner('User deleted.', 'success');
+            loadUsers();
+        } else {
+            const body = await resp.text();
+            showModalAlert('del-alert', body || 'Failed to delete user.');
+        }
+    }
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+
+    loadUsers();
+</script>
+</body>
+</html>

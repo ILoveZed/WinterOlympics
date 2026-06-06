@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile – Winter Olympics</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            min-height: 100vh;
+            background: #e8edf5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #212121;
+        }
+        main { max-width: 680px; margin: 36px auto; padding: 0 24px; }
+        h1 { font-size: 1.5rem; color: #0d1b6e; margin-bottom: 24px; }
+
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+        .card h2 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #1565c0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e8edf5;
+        }
+
+        .field { margin-bottom: 18px; }
+        label {
+            display: block;
+            font-size: 0.8rem; font-weight: 600; color: #455a64;
+            text-transform: uppercase; letter-spacing: 0.4px;
+            margin-bottom: 6px;
+        }
+        input, select {
+            width: 100%; padding: 10px 12px;
+            border: 1.5px solid #cfd8dc; border-radius: 7px;
+            font-size: 0.93rem; color: #212121; background: #fff;
+            outline: none; transition: border-color 0.2s;
+        }
+        input:focus, select:focus { border-color: #1565c0; }
+        input[readonly] { background: #f5f7fb; color: #78909c; cursor: default; }
+
+        .row { display: flex; gap: 16px; }
+        .row .field { flex: 1; }
+
+        .field-meta {
+            font-size: 0.8rem;
+            color: #90a4ae;
+            margin-top: 4px;
+        }
+
+        button[type="submit"], .btn-save {
+            padding: 10px 24px;
+            background: linear-gradient(90deg, #1565c0, #1e88e5);
+            color: #fff; font-size: 0.92rem; font-weight: 600;
+            border: none; border-radius: 7px; cursor: pointer;
+            transition: opacity 0.15s;
+        }
+        button:hover { opacity: 0.88; }
+        button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+        .alert {
+            border-radius: 7px; padding: 10px 14px;
+            font-size: 0.87rem; margin-bottom: 18px;
+        }
+        .alert.error   { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+        .alert.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+
+<main>
+    <h1>My Profile</h1>
+
+    <!-- Profile Info Card -->
+    <div class="card">
+        <h2>Personal Information</h2>
+        <div id="profile-alert" class="alert hidden"></div>
+
+        <div class="field">
+            <label>Username</label>
+            <input type="text" id="p-username" readonly>
+            <p class="field-meta">Username cannot be changed.</p>
+        </div>
+        <div class="row">
+            <div class="field">
+                <label>First Name</label>
+                <input type="text" id="p-firstName" placeholder="First name">
+            </div>
+            <div class="field">
+                <label>Last Name</label>
+                <input type="text" id="p-lastName" placeholder="Last name">
+            </div>
+        </div>
+        <div class="field">
+            <label>Country</label>
+            <input type="text" id="p-country" placeholder="Country">
+        </div>
+        <div class="row">
+            <div class="field">
+                <label>Sex</label>
+                <input type="text" id="p-sex" readonly>
+            </div>
+            <div class="field">
+                <label>Date of Birth</label>
+                <input type="text" id="p-birthDate" readonly>
+            </div>
+        </div>
+
+        <button class="btn-save" id="profile-save-btn" onclick="saveProfile()">Save Changes</button>
+    </div>
+
+    <!-- Change Password Card -->
+    <div class="card">
+        <h2>Change Password</h2>
+        <div id="pwd-alert" class="alert hidden"></div>
+
+        <div class="field">
+            <label>New Password</label>
+            <input type="password" id="pwd-new" placeholder="Enter new password">
+        </div>
+        <div class="field">
+            <label>Confirm New Password</label>
+            <input type="password" id="pwd-confirm" placeholder="Confirm new password">
+        </div>
+
+        <button class="btn-save" id="pwd-save-btn" onclick="savePassword()">Change Password</button>
+    </div>
+</main>
+
+<script>
+    const token = localStorage.getItem('accessToken');
+    if (!token) window.location.href = '/login';
+
+    async function api(method, path, body) {
+        const resp = await fetch('/api/me' + path, {
+            method,
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: body !== undefined ? JSON.stringify(body) : undefined
+        });
+        if (resp.status === 401) { window.location.href = '/login'; return null; }
+        return resp;
+    }
+
+    function showAlert(id, msg, type) {
+        const el = document.getElementById(id);
+        el.textContent = msg;
+        el.className = 'alert ' + type;
+        el.classList.remove('hidden');
+        setTimeout(() => el.classList.add('hidden'), 5000);
+    }
+
+    // ── Load profile ─────────────────────────────────────────────────────────
+
+    async function loadProfile() {
+        const resp = await api('GET', '');
+        if (!resp || !resp.ok) return;
+        const p = await resp.json();
+
+        document.getElementById('p-username').value  = p.username  || '';
+        document.getElementById('p-firstName').value = p.firstName || '';
+        document.getElementById('p-lastName').value  = p.lastName  || '';
+        document.getElementById('p-country').value   = p.country   || '';
+        document.getElementById('p-sex').value       = p.sex       || '';
+        document.getElementById('p-birthDate').value = p.birthDate || '';
+    }
+
+    // ── Save profile ─────────────────────────────────────────────────────────
+
+    async function saveProfile() {
+        const btn = document.getElementById('profile-save-btn');
+        btn.disabled = true;
+
+        const resp = await api('PUT', '/profile', {
+            firstName: document.getElementById('p-firstName').value,
+            lastName:  document.getElementById('p-lastName').value,
+            country:   document.getElementById('p-country').value
+        });
+
+        btn.disabled = false;
+        if (!resp) return;
+        if (resp.ok) {
+            showAlert('profile-alert', 'Profile updated successfully.', 'success');
+        } else {
+            const body = await resp.text();
+            showAlert('profile-alert', body || 'Failed to update profile.', 'error');
+        }
+    }
+
+    // ── Change password ───────────────────────────────────────────────────────
+
+    async function savePassword() {
+        const newPwd     = document.getElementById('pwd-new').value;
+        const confirmPwd = document.getElementById('pwd-confirm').value;
+
+        if (!newPwd) { showAlert('pwd-alert', 'Password cannot be empty.', 'error'); return; }
+        if (newPwd !== confirmPwd) { showAlert('pwd-alert', 'Passwords do not match.', 'error'); return; }
+
+        const btn = document.getElementById('pwd-save-btn');
+        btn.disabled = true;
+
+        const resp = await api('PUT', '/password', { newPassword: newPwd });
+
+        btn.disabled = false;
+        if (!resp) return;
+        if (resp.ok) {
+            document.getElementById('pwd-new').value = '';
+            document.getElementById('pwd-confirm').value = '';
+            showAlert('pwd-alert', 'Password changed successfully.', 'success');
+        } else {
+            const body = await resp.text();
+            showAlert('pwd-alert', body || 'Failed to change password.', 'error');
+        }
+    }
+
+    loadProfile();
+</script>
+</body>
+</html>

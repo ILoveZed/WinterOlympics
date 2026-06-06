@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results – Winter Olympics</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { min-height: 100vh; background: #e8edf5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #212121; }
+
+        .layout { display: flex; gap: 0; min-height: calc(100vh - 56px); }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px; flex-shrink: 0;
+            background: #fff; border-right: 1px solid #e0e8ff;
+            overflow-y: auto;
+        }
+        .sidebar-header {
+            background: linear-gradient(90deg, #0d1b6e, #1565c0);
+            color: #fff; padding: 16px 20px;
+            font-size: 0.88rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .comp-group { border-bottom: 1px solid #f0f4f8; }
+        .group-title {
+            padding: 10px 16px 6px; font-size: 0.75rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.4px; color: #78909c;
+        }
+        .comp-item {
+            padding: 9px 16px 9px 22px; font-size: 0.85rem; cursor: pointer;
+            color: #37474f; display: flex; align-items: center; justify-content: space-between;
+            gap: 8px; transition: background 0.12s;
+        }
+        .comp-item:hover { background: #f0f4ff; }
+        .comp-item.active { background: #e3eeff; color: #1565c0; font-weight: 600; }
+        .sex-pill {
+            font-size: 0.65rem; font-weight: 700; padding: 1px 7px; border-radius: 8px; flex-shrink: 0;
+        }
+        .sex-male   { background: #e3f2fd; color: #1565c0; }
+        .sex-female { background: #fce4ec; color: #c2185b; }
+        .no-comps { padding: 24px 16px; font-size: 0.85rem; color: #b0bec5; }
+
+        /* Main panel */
+        .main-panel { flex: 1; min-width: 0; padding: 28px 32px; overflow-y: auto; }
+
+        .alert { border-radius: 8px; padding: 11px 16px; font-size: 0.88rem; margin-bottom: 20px; }
+        .alert.error   { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+        .alert.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .hidden { display: none; }
+
+        /* Placeholder */
+        #placeholder {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 60vh; color: #90a4ae; text-align: center; gap: 12px;
+        }
+        #placeholder .icon { font-size: 3rem; }
+        #placeholder p { font-size: 1rem; }
+
+        /* Competition header */
+        .comp-header {
+            background: linear-gradient(90deg, #0d1b6e, #1565c0);
+            color: #fff; border-radius: 12px; padding: 18px 24px; margin-bottom: 24px;
+        }
+        .comp-header h2 { font-size: 1.15rem; font-weight: 700; }
+        .comp-header .meta { font-size: 0.82rem; opacity: 0.8; margin-top: 4px; }
+        .penalty-info {
+            display: inline-block; margin-top: 8px;
+            background: rgba(255,255,255,0.2); border-radius: 6px;
+            padding: 3px 10px; font-size: 0.78rem; font-weight: 600;
+        }
+
+        /* Section titles */
+        .section-title {
+            font-size: 0.82rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.5px; color: #455a64; margin-bottom: 14px; margin-top: 28px;
+        }
+        .section-title:first-child { margin-top: 0; }
+
+        /* Entry & result tables */
+        .entry-table, .result-table {
+            width: 100%; border-collapse: collapse;
+            background: #fff; border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.07); overflow: hidden;
+        }
+        .entry-table thead, .result-table thead {
+            background: linear-gradient(90deg, #0d1b6e, #1565c0); color: #fff;
+        }
+        .entry-table th, .result-table th {
+            padding: 11px 14px; text-align: left; font-size: 0.75rem;
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+        }
+        .entry-table td, .result-table td { padding: 11px 14px; font-size: 0.87rem; border-bottom: 1px solid #f0f4f8; }
+        .entry-table tr:last-child td, .result-table tr:last-child td { border-bottom: none; }
+        .entry-table tr:hover td { background: #f7f9ff; }
+
+        .ath-name { font-weight: 600; }
+        .ath-user { font-size: 0.75rem; color: #90a4ae; margin-top: 2px; }
+
+        input.time-input, input.misses-input {
+            width: 100%; padding: 7px 10px; border: 1.5px solid #cfd8dc;
+            border-radius: 6px; font-size: 0.87rem; color: #212121;
+            background: #fff; outline: none; transition: border-color 0.2s;
+            max-width: 110px;
+        }
+        input.time-input:focus, input.misses-input:focus { border-color: #1565c0; }
+        input.misses-input { max-width: 70px; }
+
+        .computed-cell { font-size: 0.85rem; color: #546e7a; font-style: italic; }
+
+        /* Save button */
+        .save-area { margin-top: 16px; display: flex; align-items: center; gap: 12px; }
+        .btn-save {
+            background: #1565c0; color: #fff; border: none; border-radius: 8px;
+            padding: 10px 24px; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+            transition: opacity 0.15s;
+        }
+        .btn-save:hover { opacity: 0.88; }
+        .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Ranking medal colors */
+        .rank-num { font-weight: 800; font-size: 1rem; }
+        .rank-1 { color: #f9a825; }
+        .rank-2 { color: #78909c; }
+        .rank-3 { color: #8d6e63; }
+        .final-time { font-weight: 700; color: #0d1b6e; }
+        .result-table tbody tr:nth-child(1) td { background: #fffde7; }
+        .result-table tbody tr:nth-child(2) td { background: #fafafa; }
+        .result-table tbody tr:nth-child(3) td { background: #fbe9e7; }
+
+        .no-athletes { padding: 20px 0; color: #b0bec5; font-size: 0.88rem; }
+
+        #panel-loading { padding: 40px; text-align: center; color: #78909c; }
+
+        /* Q / DNQ badges */
+        .badge-q {
+            display: inline-block; background: #e8f5e9; color: #2e7d32;
+            border: 1px solid #a5d6a7; border-radius: 5px;
+            padding: 2px 8px; font-size: 0.72rem; font-weight: 700;
+        }
+        .badge-dnq {
+            display: inline-block; background: #ffebee; color: #c62828;
+            border: 1px solid #ef9a9a; border-radius: 5px;
+            padding: 2px 8px; font-size: 0.72rem; font-weight: 700;
+        }
+
+        /* Run 2 start number */
+        .start-num { font-size: 0.95rem; font-weight: 800; color: #0d1b6e; }
+
+        /* Section divider */
+        .section-divider {
+            border: none; border-top: 1px solid #dde4f0; margin: 8px 0 0 0;
+        }
+    </style>
+</head>
+<body>
+
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+
+<div class="layout">
+    <!-- Sidebar: competition list -->
+    <aside class="sidebar">
+        <div class="sidebar-header">Competitions</div>
+        <div id="comp-list"><div class="no-comps">Loading…</div></div>
+    </aside>
+
+    <!-- Main panel -->
+    <div class="main-panel">
+        <div id="alert-banner" class="alert hidden"></div>
+
+        <div id="placeholder">
+            <div class="icon">🏅</div>
+            <p>Select a competition from the left to enter results.</p>
+        </div>
+
+        <div id="results-panel" class="hidden">
+            <div id="panel-loading">Loading…</div>
+            <div id="panel-content" class="hidden">
+
+                <!-- Competition header -->
+                <div class="comp-header">
+                    <h2 id="comp-title"></h2>
+                    <div class="meta" id="comp-game"></div>
+                    <div id="penalty-badge" class="penalty-info hidden"></div>
+                </div>
+
+                <div id="panel-alert" class="alert hidden"></div>
+
+                <!-- ══ BIATHLON sections ══════════════════════════════════════ -->
+                <div id="biathlon-sections" class="hidden">
+
+                    <h3 class="section-title">Enter Results</h3>
+                    <div id="bno-athletes" class="no-athletes hidden">No accepted athletes for this competition.</div>
+                    <table class="entry-table hidden" id="biathlon-entry-table">
+                        <thead id="biathlon-entry-thead"></thead>
+                        <tbody id="biathlon-entry-tbody"></tbody>
+                    </table>
+                    <div class="save-area hidden" id="biathlon-save-area">
+                        <button class="btn-save" id="biathlon-save-btn" onclick="saveBiathlon()">Save Results</button>
+                        <span style="font-size:0.78rem;color:#90a4ae;">Times in seconds (e.g. 1823.50).</span>
+                    </div>
+
+                    <hr class="section-divider">
+                    <h3 class="section-title">Ranking</h3>
+                    <div id="bno-results-msg" class="no-athletes">No results entered yet.</div>
+                    <table class="result-table hidden" id="biathlon-ranking-table">
+                        <thead id="biathlon-rank-thead"></thead>
+                        <tbody id="biathlon-rank-tbody"></tbody>
+                    </table>
+                </div>
+
+                <!-- ══ SLALOM sections ═══════════════════════════════════════ -->
+                <div id="slalom-sections" class="hidden">
+
+                    <!-- Run 1 Entry -->
+                    <h3 class="section-title">Run 1 — Enter Times</h3>
+                    <div id="sno-athletes" class="no-athletes hidden">No accepted athletes for this competition.</div>
+                    <table class="entry-table hidden" id="slalom-run1-table">
+                        <thead id="slalom-run1-thead"></thead>
+                        <tbody id="slalom-run1-tbody"></tbody>
+                    </table>
+                    <div class="save-area hidden" id="slalom-run1-save-area">
+                        <button class="btn-save" id="run1-save-btn" onclick="saveRun1()">Save Run 1</button>
+                        <span style="font-size:0.78rem;color:#90a4ae;">Times in seconds (e.g. 54.32).</span>
+                    </div>
+
+                    <!-- Run 1 Ranking -->
+                    <div id="slalom-run1-ranking" class="hidden">
+                        <hr class="section-divider">
+                        <h3 class="section-title">Run 1 Ranking</h3>
+                        <table class="result-table" id="slalom-run1-ranking-table">
+                            <thead id="slalom-run1-rank-thead"></thead>
+                            <tbody id="slalom-run1-rank-tbody"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- Run 2 Entry -->
+                    <div id="slalom-run2-entry" class="hidden">
+                        <hr class="section-divider">
+                        <h3 class="section-title">Run 2 — Enter Times (Start Order: worst qualifier first)</h3>
+                        <table class="entry-table" id="slalom-run2-table">
+                            <thead id="slalom-run2-thead"></thead>
+                            <tbody id="slalom-run2-tbody"></tbody>
+                        </table>
+                        <div class="save-area">
+                            <button class="btn-save" id="run2-save-btn" onclick="saveRun2()">Save Run 2</button>
+                            <span style="font-size:0.78rem;color:#90a4ae;">Times in seconds (e.g. 53.85).</span>
+                        </div>
+                    </div>
+
+                    <!-- Final Ranking -->
+                    <div id="slalom-final-ranking" class="hidden">
+                        <hr class="section-divider">
+                        <h3 class="section-title">Final Ranking</h3>
+                        <table class="result-table" id="slalom-final-ranking-table">
+                            <thead id="slalom-final-rank-thead"></thead>
+                            <tbody id="slalom-final-rank-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('accessToken');
+    if (!token) window.location.href = '/login';
+
+    let currentType = null;
+    let currentCompId = null;
+    let currentSlalomData = null;
+    let currentBiathlonData = null;
+    let run2Athletes = [];
+    let currentPenaltySeconds = 0;
+    let activeItem = null;
+
+    function showBanner(msg, type = 'error') {
+        const el = document.getElementById('alert-banner');
+        el.textContent = msg; el.className = 'alert ' + type; el.classList.remove('hidden');
+        setTimeout(() => el.classList.add('hidden'), 6000);
+    }
+
+    function showPanelAlert(msg, type = 'error') {
+        const el = document.getElementById('panel-alert');
+        el.textContent = msg; el.className = 'alert ' + type; el.classList.remove('hidden');
+        setTimeout(() => el.classList.add('hidden'), 5000);
+    }
+
+    // ── Load sidebar ──────────────────────────────────────────────────────────
+
+    async function loadSidebar() {
+        const resp = await fetch('/api/public/games');
+        if (!resp.ok) { showBanner('Failed to load competitions.'); return; }
+        const games = await resp.json();
+        renderSidebar(games);
+    }
+
+    function renderSidebar(games) {
+        const list = document.getElementById('comp-list');
+        list.innerHTML = '';
+        let hasAny = false;
+        games.forEach(g => {
+            const slaloms   = g.skiSlaloms  || [];
+            const biathlons = g.biathlons   || [];
+            if (slaloms.length === 0 && biathlons.length === 0) return;
+            hasAny = true;
+            const group = document.createElement('div');
+            group.className = 'comp-group';
+            const title = document.createElement('div');
+            title.className = 'group-title';
+            title.textContent = g.name + ' · ' + g.year;
+            group.appendChild(title);
+            slaloms.forEach(s  => group.appendChild(makeCompItem('slalom',   s.id, '🎿 ' + s.name, s.sex)));
+            biathlons.forEach(b => group.appendChild(makeCompItem('biathlon', b.id, '🎯 ' + b.name, b.sex)));
+            list.appendChild(group);
+        });
+        if (!hasAny) list.innerHTML = '<div class="no-comps">No competitions available.</div>';
+    }
+
+    function makeCompItem(type, id, label, sex) {
+        const item = document.createElement('div');
+        item.className = 'comp-item';
+        item.id = 'ci-' + type + '-' + id;
+        item.innerHTML = `<span>${escHtml(label)}</span><span class="sex-pill sex-${sex.toLowerCase()}">${sex}</span>`;
+        item.onclick = () => selectComp(type, id, item);
+        return item;
+    }
+
+    // ── Select competition ────────────────────────────────────────────────────
+
+    async function selectComp(type, id, itemEl) {
+        if (activeItem) activeItem.classList.remove('active');
+        activeItem = itemEl;
+        itemEl.classList.add('active');
+        currentType = type;
+        currentCompId = id;
+
+        document.getElementById('placeholder').classList.add('hidden');
+        document.getElementById('results-panel').classList.remove('hidden');
+        document.getElementById('panel-loading').classList.remove('hidden');
+        document.getElementById('panel-content').classList.add('hidden');
+
+        const resp = await fetch('/api/manager/results/' + type + '/' + id, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        document.getElementById('panel-loading').classList.add('hidden');
+
+        if (resp.status === 401) { window.location.href = '/login'; return; }
+        if (!resp.ok) { showBanner('Failed to load competition results.'); return; }
+
+        const data = await resp.json();
+        renderPanel(type, data);
+        document.getElementById('panel-content').classList.remove('hidden');
+    }
+
+    // ── Render panel dispatch ─────────────────────────────────────────────────
+
+    function renderPanel(type, data) {
+        const name = type === 'slalom' ? data.slalomName : data.biathlonName;
+        document.getElementById('comp-title').textContent = name;
+        document.getElementById('comp-game').textContent  = data.gameName;
+
+        const badge = document.getElementById('penalty-badge');
+        if (type === 'biathlon') {
+            currentPenaltySeconds = data.penaltyTimeSeconds || 0;
+            badge.textContent = data.penaltyTimeSeconds + 's per miss';
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+
+        if (type === 'slalom') {
+            document.getElementById('slalom-sections').classList.remove('hidden');
+            document.getElementById('biathlon-sections').classList.add('hidden');
+            renderSlalomPanel(data);
+        } else {
+            document.getElementById('biathlon-sections').classList.remove('hidden');
+            document.getElementById('slalom-sections').classList.add('hidden');
+            renderBiathlonPanel(data);
+        }
+    }
+
+    // ── Slalom rendering ──────────────────────────────────────────────────────
+
+    function renderSlalomPanel(data) {
+        currentSlalomData = data;
+        const athletes      = data.athletes      || [];
+        const run2Qualifiers = data.run2Qualifiers || 0;
+
+        // Run 1 entry: all accepted athletes
+        renderSlalomRun1Entry(athletes);
+
+        // Run 1 ranking: athletes that have run1Rank, sorted ascending
+        const withRun1 = athletes.filter(a => a.run1Rank != null)
+            .sort((x, y) => x.run1Rank - y.run1Rank);
+        renderSlalomRun1Ranking(withRun1);
+
+        // Run 2 entry: qualified athletes in REVERSE run1Rank order (worst qualifier starts first)
+        run2Athletes = athletes.filter(a => a.qualifiedForRun2)
+            .sort((x, y) => y.run1Rank - x.run1Rank);
+        renderSlalomRun2Entry(run2Athletes);
+
+        // Final ranking: athletes with finalRank, sorted ascending
+        const withFinal = athletes.filter(a => a.finalRank != null)
+            .sort((x, y) => x.finalRank - y.finalRank);
+        renderSlalomFinalRanking(withFinal);
+    }
+
+    function renderSlalomRun1Entry(athletes) {
+        const noMsg    = document.getElementById('sno-athletes');
+        const table    = document.getElementById('slalom-run1-table');
+        const saveArea = document.getElementById('slalom-run1-save-area');
+        const thead    = document.getElementById('slalom-run1-thead');
+        const tbody    = document.getElementById('slalom-run1-tbody');
+
+        if (athletes.length === 0) {
+            noMsg.classList.remove('hidden');
+            table.classList.add('hidden');
+            saveArea.classList.add('hidden');
+            return;
+        }
+        noMsg.classList.add('hidden');
+        table.classList.remove('hidden');
+        saveArea.classList.remove('hidden');
+
+        thead.innerHTML = `<tr><th>Athlete</th><th>Run 1 Time (s)</th></tr>`;
+        tbody.innerHTML = athletes.map(a => `
+            <tr>
+                <td><div class="ath-name">${escHtml(a.athleteName)}</div><div class="ath-user">${escHtml(a.username)}</div></td>
+                <td><input type="number" step="0.01" min="0.01" class="time-input"
+                     id="sr1-${a.registrationId}"
+                     value="${a.run1TimeSeconds != null ? a.run1TimeSeconds : ''}"></td>
+            </tr>`).join('');
+    }
+
+    function renderSlalomRun1Ranking(withRun1) {
+        const section = document.getElementById('slalom-run1-ranking');
+        if (withRun1.length === 0) { section.classList.add('hidden'); return; }
+        section.classList.remove('hidden');
+
+        document.getElementById('slalom-run1-rank-thead').innerHTML =
+            `<tr><th>Rank</th><th>Athlete</th><th>Run 1</th><th>Run 2</th></tr>`;
+        document.getElementById('slalom-run1-rank-tbody').innerHTML = withRun1.map(a => `
+            <tr>
+                <td>${rankBadge(a.run1Rank)}</td>
+                <td><div class="ath-name">${escHtml(a.athleteName)}</div><div class="ath-user">${escHtml(a.username)}</div></td>
+                <td>${formatTime(a.run1TimeSeconds)}</td>
+                <td>${a.qualifiedForRun2 ? '<span class="badge-q">Q</span>' : '<span class="badge-dnq">DNQ</span>'}</td>
+            </tr>`).join('');
+    }
+
+    function renderSlalomRun2Entry(athletes) {
+        const section = document.getElementById('slalom-run2-entry');
+        if (athletes.length === 0) { section.classList.add('hidden'); return; }
+        section.classList.remove('hidden');
+
+        document.getElementById('slalom-run2-thead').innerHTML =
+            `<tr><th>Start #</th><th>Athlete</th><th>Run 1 (Rank)</th><th>Run 2 Time (s)</th></tr>`;
+        document.getElementById('slalom-run2-tbody').innerHTML = athletes.map((a, idx) => `
+            <tr>
+                <td><span class="start-num">${idx + 1}</span></td>
+                <td><div class="ath-name">${escHtml(a.athleteName)}</div><div class="ath-user">${escHtml(a.username)}</div></td>
+                <td>${formatTime(a.run1TimeSeconds)} <span style="color:#78909c;font-size:0.8rem;">(#${a.run1Rank})</span></td>
+                <td><input type="number" step="0.01" min="0.01" class="time-input"
+                     id="sr2-${a.registrationId}"
+                     value="${a.run2TimeSeconds != null ? a.run2TimeSeconds : ''}"></td>
+            </tr>`).join('');
+    }
+
+    function renderSlalomFinalRanking(withFinal) {
+        const section = document.getElementById('slalom-final-ranking');
+        if (withFinal.length === 0) { section.classList.add('hidden'); return; }
+        section.classList.remove('hidden');
+
+        document.getElementById('slalom-final-rank-thead').innerHTML =
+            `<tr><th>Rank</th><th>Athlete</th><th>Run 1</th><th>Run 2</th><th>Combined</th></tr>`;
+        document.getElementById('slalom-final-rank-tbody').innerHTML = withFinal.map(a => `
+            <tr>
+                <td>${rankBadge(a.finalRank)}</td>
+                <td><div class="ath-name">${escHtml(a.athleteName)}</div><div class="ath-user">${escHtml(a.username)}</div></td>
+                <td>${formatTime(a.run1TimeSeconds)}</td>
+                <td>${formatTime(a.run2TimeSeconds)}</td>
+                <td class="final-time">${formatTime(a.combinedTime)}</td>
+            </tr>`).join('');
+    }
+
+    // ── Biathlon rendering ────────────────────────────────────────────────────
+
+    function renderBiathlonPanel(data) {
+        currentBiathlonData = data;
+        const athletes = data.athletes || [];
+
+        const noMsg    = document.getElementById('bno-athletes');
+        const table    = document.getElementById('biathlon-entry-table');
+        const saveArea = document.getElementById('biathlon-save-area');
+        const thead    = document.getElementById('biathlon-entry-thead');
+        const tbody    = document.getElementById('biathlon-entry-tbody');
+
+        if (athletes.length === 0) {
+            noMsg.classList.remove('hidden');
+            table.classList.add('hidden');
+            saveArea.classList.add('hidden');
+        } else {
+            noMsg.classList.add('hidden');
+            table.classList.remove('hidden');
+            saveArea.classList.remove('hidden');
+            thead.innerHTML = `<tr><th>Athlete</th><th>Race Time (s)</th><th>Misses</th><th>Final Time</th></tr>`;
+            tbody.innerHTML = athletes.map(a => `
+                <tr>
+                    <td><div class="ath-name">${escHtml(a.athleteName)}</div><div class="ath-user">${escHtml(a.username)}</div></td>
+                    <td><input type="number" step="0.01" min="0.01" class="time-input"
+                         id="race-${a.registrationId}"
+                         value="${a.raceTimeSeconds != null ? a.raceTimeSeconds : ''}"
+                         oninput="updateFinalTime(${a.registrationId})"></td>
+                    <td><input type="number" step="1" min="0" class="misses-input"
+                         id="misses-${a.registrationId}"
+                         value="${a.numberOfMisses != null ? a.numberOfMisses : ''}"
+                         oninput="updateFinalTime(${a.registrationId})"></td>
+                    <td class="computed-cell" id="final-${a.registrationId}">${a.finalTime != null ? formatTime(a.finalTime) : '—'}</td>
+                </tr>`).join('');
+        }
+
+        const ranked   = athletes.filter(a => a.rank != null);
+        const noResMsg = document.getElementById('bno-results-msg');
+        const rankTable = document.getElementById('biathlon-ranking-table');
+
+        if (ranked.length === 0) {
+            noResMsg.classList.remove('hidden');
+            rankTable.classList.add('hidden');
+        } else {
+            noResMsg.classList.add('hidden');
+            rankTable.classList.remove('hidden');
+            document.getElementById('biathlon-rank-thead').innerHTML = `<tr>
+                <th>Rank</th><th>Athlete</th><th>Race Time</th><th>Misses × Penalty</th><th>Final Time</th>
+            </tr>`;
+            document.getElementById('biathlon-rank-tbody').innerHTML = ranked
+                .sort((x, y) => x.rank - y.rank)
+                .map(a => `
+                <tr>
+                    <td>${rankBadge(a.rank)}</td>
+                    <td><div class="ath-name">${escHtml(a.athleteName)}</div><div class="ath-user">${escHtml(a.username)}</div></td>
+                    <td>${formatTime(a.raceTimeSeconds)}</td>
+                    <td>${a.numberOfMisses} × ${currentPenaltySeconds}s = +${formatTime(a.numberOfMisses * currentPenaltySeconds)}</td>
+                    <td class="final-time">${formatTime(a.finalTime)}</td>
+                </tr>`).join('');
+        }
+    }
+
+    function updateFinalTime(regId) {
+        const race   = parseFloat(document.getElementById('race-'   + regId)?.value);
+        const misses = parseInt(document.getElementById('misses-' + regId)?.value);
+        const cell   = document.getElementById('final-' + regId);
+        if (cell) cell.textContent = (!isNaN(race) && !isNaN(misses))
+            ? formatTime(race + misses * currentPenaltySeconds) : '—';
+    }
+
+    // ── Save ──────────────────────────────────────────────────────────────────
+
+    async function saveRun1() {
+        const btn = document.getElementById('run1-save-btn');
+        btn.disabled = true; btn.textContent = 'Saving…';
+
+        const entries = (currentSlalomData.athletes || []).map(a => {
+            const r1 = parseFloat(document.getElementById('sr1-' + a.registrationId)?.value);
+            return (!isNaN(r1) && r1 > 0) ? { registrationId: a.registrationId, run1TimeSeconds: r1 } : null;
+        }).filter(e => e != null);
+
+        btn.disabled = false; btn.textContent = 'Save Run 1';
+
+        if (entries.length === 0) {
+            showPanelAlert('Please fill in at least one athlete\'s Run 1 time.');
+            return;
+        }
+
+        const resp = await fetch('/api/manager/results/slalom/' + currentCompId + '/run1', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify(entries)
+        });
+        if (resp.ok) {
+            renderSlalomPanel(await resp.json());
+            showPanelAlert('Run 1 results saved.', 'success');
+        } else {
+            showPanelAlert('Failed to save Run 1 results.');
+        }
+    }
+
+    async function saveRun2() {
+        const btn = document.getElementById('run2-save-btn');
+        btn.disabled = true; btn.textContent = 'Saving…';
+
+        const entries = run2Athletes.map(a => {
+            const r2 = parseFloat(document.getElementById('sr2-' + a.registrationId)?.value);
+            return (!isNaN(r2) && r2 > 0) ? { registrationId: a.registrationId, run2TimeSeconds: r2 } : null;
+        }).filter(e => e != null);
+
+        btn.disabled = false; btn.textContent = 'Save Run 2';
+
+        if (entries.length === 0) {
+            showPanelAlert('Please fill in at least one athlete\'s Run 2 time.');
+            return;
+        }
+
+        const resp = await fetch('/api/manager/results/slalom/' + currentCompId + '/run2', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify(entries)
+        });
+        if (resp.ok) {
+            renderSlalomPanel(await resp.json());
+            showPanelAlert('Run 2 results saved.', 'success');
+        } else {
+            showPanelAlert('Failed to save Run 2 results.');
+        }
+    }
+
+    async function saveBiathlon() {
+        const btn = document.getElementById('biathlon-save-btn');
+        btn.disabled = true; btn.textContent = 'Saving…';
+
+        const entries = (currentBiathlonData.athletes || []).map(a => {
+            const race   = parseFloat(document.getElementById('race-'   + a.registrationId)?.value);
+            const misses = parseInt(document.getElementById('misses-' + a.registrationId)?.value);
+            return (!isNaN(race) && race > 0 && !isNaN(misses) && misses >= 0)
+                ? { registrationId: a.registrationId, raceTimeSeconds: race, numberOfMisses: misses }
+                : null;
+        }).filter(e => e != null);
+
+        btn.disabled = false; btn.textContent = 'Save Results';
+
+        if (entries.length === 0) {
+            showPanelAlert('Please fill in at least one athlete\'s times before saving.');
+            return;
+        }
+
+        const resp = await fetch('/api/manager/results/biathlon/' + currentCompId, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify(entries)
+        });
+        if (resp.ok) {
+            renderBiathlonPanel(await resp.json());
+            showPanelAlert('Results saved successfully.', 'success');
+        } else {
+            showPanelAlert('Failed to save results. Please try again.');
+        }
+    }
+
+    // ── Utilities ─────────────────────────────────────────────────────────────
+
+    function rankBadge(r) {
+        if (r === 1) return `<span class="rank-num rank-1">🥇 1</span>`;
+        if (r === 2) return `<span class="rank-num rank-2">🥈 2</span>`;
+        if (r === 3) return `<span class="rank-num rank-3">🥉 3</span>`;
+        return `<span class="rank-num">${r}</span>`;
+    }
+
+    function formatTime(seconds) {
+        if (seconds == null || isNaN(seconds)) return '—';
+        const m = Math.floor(seconds / 60);
+        const s = (seconds % 60).toFixed(2);
+        const sStr = parseFloat(s) < 10 ? '0' + s : s;
+        return m > 0 ? m + ':' + sStr : s + 's';
+    }
+
+    function escHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    loadSidebar();
+</script>
+</body>
+</html>

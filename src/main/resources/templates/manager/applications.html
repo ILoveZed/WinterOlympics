@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Applications – Winter Olympics</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { min-height: 100vh; background: #e8edf5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #212121; }
+
+        main { max-width: 1100px; margin: 32px auto; padding: 0 24px; }
+
+        .page-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+        .page-header h1 { font-size: 1.5rem; color: #0d1b6e; }
+
+        .alert { border-radius: 8px; padding: 11px 16px; font-size: 0.88rem; margin-bottom: 20px; }
+        .alert.error   { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+        .alert.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .hidden { display: none; }
+
+        /* Filter tabs */
+        .filter-tabs { display: flex; gap: 6px; }
+        .tab {
+            cursor: pointer; border: 1.5px solid #c5cae9; border-radius: 20px;
+            padding: 5px 16px; font-size: 0.82rem; font-weight: 600;
+            background: #fff; color: #546e7a; transition: all 0.15s;
+        }
+        .tab:hover { border-color: #1565c0; color: #1565c0; }
+        .tab.active { background: #1565c0; border-color: #1565c0; color: #fff; }
+
+        /* Table */
+        .table-wrap { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background: linear-gradient(90deg, #0d1b6e, #1565c0); color: #fff; }
+        th { padding: 13px 16px; text-align: left; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+        td { padding: 13px 16px; font-size: 0.88rem; border-bottom: 1px solid #f0f4f8; vertical-align: middle; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #f7f9ff; }
+
+        .comp-type { font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 8px; }
+        .type-slalom   { background: #e8f5e9; color: #2e7d32; }
+        .type-biathlon { background: #fff3e0; color: #e65100; }
+
+        .status-badge {
+            display: inline-block; padding: 3px 10px; border-radius: 10px;
+            font-size: 0.75rem; font-weight: 700; letter-spacing: 0.3px;
+        }
+        .badge-pending  { background: #fff8e1; color: #f57f17; border: 1px solid #ffe082; }
+        .badge-accepted { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .badge-rejected { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+
+        .action-btns { display: flex; gap: 6px; }
+        button { cursor: pointer; border: none; border-radius: 6px; padding: 5px 12px; font-size: 0.78rem; font-weight: 600; transition: opacity 0.15s; }
+        button:hover { opacity: 0.85; }
+        button:disabled { opacity: 0.45; cursor: not-allowed; }
+        .btn-accept { background: #e8f5e9; color: #2e7d32; }
+        .btn-reject { background: #ffebee; color: #c62828; }
+
+        #loading { text-align: center; padding: 48px; color: #78909c; }
+        .empty-msg { text-align: center; padding: 40px; color: #90a4ae; font-size: 0.9rem; }
+
+        .count-badge { background: #e8edf5; color: #546e7a; border-radius: 10px; padding: 2px 8px; font-size: 0.78rem; margin-left: 6px; }
+    </style>
+</head>
+<body>
+
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+
+<main>
+    <div id="alert-banner" class="alert hidden"></div>
+
+    <div class="page-header">
+        <h1>Competition Applications</h1>
+        <div class="filter-tabs">
+            <button class="tab active" id="f-ALL"      onclick="setFilter('ALL')">All <span id="cnt-ALL" class="count-badge">0</span></button>
+            <button class="tab"        id="f-PENDING"  onclick="setFilter('PENDING')">Pending <span id="cnt-PENDING" class="count-badge">0</span></button>
+            <button class="tab"        id="f-ACCEPTED" onclick="setFilter('ACCEPTED')">Accepted <span id="cnt-ACCEPTED" class="count-badge">0</span></button>
+            <button class="tab"        id="f-REJECTED" onclick="setFilter('REJECTED')">Rejected <span id="cnt-REJECTED" class="count-badge">0</span></button>
+        </div>
+    </div>
+
+    <div id="loading">Loading applications…</div>
+
+    <div id="table-wrap" class="table-wrap hidden">
+        <table>
+            <thead>
+                <tr>
+                    <th>Athlete</th>
+                    <th>Competition</th>
+                    <th>Game</th>
+                    <th>Applied</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+        </table>
+        <div id="empty-msg" class="empty-msg hidden">No applications match this filter.</div>
+    </div>
+</main>
+
+<script>
+    const token = localStorage.getItem('accessToken');
+    if (!token) window.location.href = '/login';
+
+    let allApplications = [];
+    let currentFilter = 'ALL';
+
+    function showBanner(msg, type = 'error') {
+        const el = document.getElementById('alert-banner');
+        el.textContent = msg; el.className = 'alert ' + type; el.classList.remove('hidden');
+        setTimeout(() => el.classList.add('hidden'), 5000);
+    }
+
+    async function loadApplications() {
+        const resp = await fetch('/api/manager/applications', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (resp.status === 401) { window.location.href = '/login'; return; }
+        if (resp.status === 403) { showBanner('Access denied. Manager role required.'); return; }
+        document.getElementById('loading').classList.add('hidden');
+        if (!resp.ok) { showBanner('Failed to load applications (HTTP ' + resp.status + ').'); return; }
+
+        allApplications = await resp.json();
+        updateCounts();
+        document.getElementById('table-wrap').classList.remove('hidden');
+        renderTable();
+    }
+
+    function updateCounts() {
+        const counts = { ALL: allApplications.length, PENDING: 0, ACCEPTED: 0, REJECTED: 0 };
+        allApplications.forEach(a => { if (counts[a.status] !== undefined) counts[a.status]++; });
+        ['ALL','PENDING','ACCEPTED','REJECTED'].forEach(k => {
+            document.getElementById('cnt-' + k).textContent = counts[k];
+        });
+    }
+
+    function setFilter(f) {
+        currentFilter = f;
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('f-' + f).classList.add('active');
+        renderTable();
+    }
+
+    function renderTable() {
+        const rows = currentFilter === 'ALL'
+            ? allApplications
+            : allApplications.filter(a => a.status === currentFilter);
+
+        const tbody = document.getElementById('tbody');
+        const emptyMsg = document.getElementById('empty-msg');
+
+        if (rows.length === 0) {
+            tbody.innerHTML = '';
+            emptyMsg.classList.remove('hidden');
+            return;
+        }
+        emptyMsg.classList.add('hidden');
+        tbody.innerHTML = rows.map(a => rowHtml(a)).join('');
+    }
+
+    function rowHtml(a) {
+        const typeLabel = a.competitionType === 'SLALOM'
+            ? `<span class="comp-type type-slalom">🎿 Slalom</span>`
+            : `<span class="comp-type type-biathlon">🎯 Biathlon</span>`;
+
+        const statusBadge = `<span class="status-badge badge-${a.status.toLowerCase()}">${a.status}</span>`;
+
+        const appliedDate = a.appliedAt ? a.appliedAt.replace('T', ' ').substring(0, 16) : '—';
+
+        const actions = a.status === 'PENDING'
+            ? `<div class="action-btns">
+                   <button class="btn-accept" onclick="decide(${a.id},'accept',this)">Accept</button>
+                   <button class="btn-reject" onclick="decide(${a.id},'reject',this)">Reject</button>
+               </div>`
+            : `<span style="color:#b0bec5;font-size:0.8rem;">—</span>`;
+
+        return `<tr id="row-${a.id}">
+            <td>
+                <div style="font-weight:600;">${escHtml(a.athleteName)}</div>
+                <div style="font-size:0.78rem;color:#90a4ae;">${escHtml(a.username)}</div>
+            </td>
+            <td>
+                <div>${escHtml(a.competitionName)}</div>
+                <div style="margin-top:3px;">${typeLabel}</div>
+            </td>
+            <td>${escHtml(a.gameName)}</td>
+            <td>${escHtml(appliedDate)}</td>
+            <td id="status-${a.id}">${statusBadge}</td>
+            <td id="actions-${a.id}">${actions}</td>
+        </tr>`;
+    }
+
+    async function decide(id, action, btn) {
+        const row = btn.closest('tr');
+        if (row) row.querySelectorAll('button').forEach(b => b.disabled = true);
+
+        const resp = await fetch('/api/manager/applications/' + id + '/' + action, {
+            method: 'PUT',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+
+        if (resp.ok) {
+            const newStatus = action === 'accept' ? 'ACCEPTED' : 'REJECTED';
+            const app = allApplications.find(a => a.id === id);
+            if (app) app.status = newStatus;
+
+            const cls = 'badge-' + newStatus.toLowerCase();
+            document.getElementById('status-' + id).innerHTML =
+                `<span class="status-badge ${cls}">${newStatus}</span>`;
+            document.getElementById('actions-' + id).innerHTML =
+                `<span style="color:#b0bec5;font-size:0.8rem;">—</span>`;
+
+            updateCounts();
+            if (currentFilter !== 'ALL' && currentFilter !== newStatus) {
+                document.getElementById('row-' + id)?.remove();
+                if (!document.querySelector('#tbody tr')) {
+                    document.getElementById('empty-msg').classList.remove('hidden');
+                }
+            }
+        } else {
+            const msg = await resp.text();
+            showBanner(msg || 'Action failed.');
+            if (row) row.querySelectorAll('button').forEach(b => b.disabled = false);
+        }
+    }
+
+    function escHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    loadApplications();
+</script>
+</body>
+</html>

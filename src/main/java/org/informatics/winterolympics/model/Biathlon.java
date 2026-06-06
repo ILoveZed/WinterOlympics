@@ -1,7 +1,6 @@
 package org.informatics.winterolympics.model;
 
 import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -16,6 +15,9 @@ public class Biathlon {
     @JoinColumn(name = "olympic_game_id")
     private OlympicGame olympicGame;
 
+    @Column(nullable = false)
+    private String name;
+
     private int numberOfAthletes;
 
     private int numberOfLaps;
@@ -28,98 +30,56 @@ public class Biathlon {
 
     private int minimalAge;
 
+    @Column(nullable = false)
+    private int penaltyTimeSeconds;
+
     private LocalDateTime timeOfEvent;
 
-    public Biathlon() {
-    }
+    public Biathlon() {}
 
-    public Biathlon(OlympicGame olympicGame,
-                    int numberOfAthletes,
-                    int numberOfLaps,
-                    int numberOfShootings,
-                    int numberOfLapsBetweenShootings,
-                    String sex,
-                    int minimalAge,
-                    LocalDateTime timeOfEvent) {
+    public Biathlon(OlympicGame olympicGame, String name, String sex, int minimalAge,
+                    int numberOfAthletes, int numberOfLaps, int numberOfShootings,
+                    int numberOfLapsBetweenShootings, int penaltyTimeSeconds) {
         this.olympicGame = olympicGame;
+        this.name = name;
+        this.sex = sex;
+        this.minimalAge = minimalAge;
         this.numberOfAthletes = numberOfAthletes;
         this.numberOfLaps = numberOfLaps;
         this.numberOfShootings = numberOfShootings;
         this.numberOfLapsBetweenShootings = numberOfLapsBetweenShootings;
-        this.sex = sex;
-        this.minimalAge = minimalAge;
-        this.timeOfEvent = timeOfEvent;
+        this.penaltyTimeSeconds = penaltyTimeSeconds;
     }
 
-    public OlympicGame getOlympicGame() {
-        return olympicGame;
-    }
+    public Long getId() { return id; }
 
-    public void setOlympicGame(OlympicGame olympicGame) {
-        this.olympicGame = olympicGame;
-    }
+    public OlympicGame getOlympicGame() { return olympicGame; }
+    public void setOlympicGame(OlympicGame olympicGame) { this.olympicGame = olympicGame; }
 
-    public Long getId() {
-        return id;
-    }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public int getNumberOfAthletes() { return numberOfAthletes; }
+    public void setNumberOfAthletes(int numberOfAthletes) { this.numberOfAthletes = numberOfAthletes; }
 
-    public int getNumberOfAthletes() {
-        return numberOfAthletes;
-    }
+    public int getNumberOfLaps() { return numberOfLaps; }
+    public void setNumberOfLaps(int numberOfLaps) { this.numberOfLaps = numberOfLaps; }
 
-    public void setNumberOfAthletes(int numberOfAthletes) {
-        this.numberOfAthletes = numberOfAthletes;
-    }
+    public int getNumberOfShootings() { return numberOfShootings; }
+    public void setNumberOfShootings(int numberOfShootings) { this.numberOfShootings = numberOfShootings; }
 
-    public int getNumberOfLaps() {
-        return numberOfLaps;
-    }
+    public int getNumberOfLapsBetweenShootings() { return numberOfLapsBetweenShootings; }
+    public void setNumberOfLapsBetweenShootings(int v) { this.numberOfLapsBetweenShootings = v; }
 
-    public void setNumberOfLaps(int numberOfLaps) {
-        this.numberOfLaps = numberOfLaps;
-    }
+    public String getSex() { return sex; }
+    public void setSex(String sex) { this.sex = sex; }
 
-    public int getNumberOfShootings() {
-        return numberOfShootings;
-    }
+    public int getMinimalAge() { return minimalAge; }
+    public void setMinimalAge(int minimalAge) { this.minimalAge = minimalAge; }
 
-    public void setNumberOfShootings(int numberOfShootings) {
-        this.numberOfShootings = numberOfShootings;
-    }
+    public int getPenaltyTimeSeconds() { return penaltyTimeSeconds; }
+    public void setPenaltyTimeSeconds(int penaltyTimeSeconds) { this.penaltyTimeSeconds = penaltyTimeSeconds; }
 
-    public int getNumberOfLapsBetweenShootings() {
-        return numberOfLapsBetweenShootings;
-    }
-
-    public void setNumberOfLapsBetweenShootings(int numberOfLapsBetweenShootings) {
-        this.numberOfLapsBetweenShootings = numberOfLapsBetweenShootings;
-    }
-
-    public String getSex() {
-        return sex;
-    }
-
-    public void setSex(String sex) {
-        this.sex = sex;
-    }
-
-    public int getMinimalAge() {
-        return minimalAge;
-    }
-
-    public void setMinimalAge(int minimalAge) {
-        this.minimalAge = minimalAge;
-    }
-
-    public LocalDateTime getTimeOfEvent() {
-        return timeOfEvent;
-    }
-
-    public void setTimeOfEvent(LocalDateTime date) {
-        this.timeOfEvent = date;
-    }
+    public LocalDateTime getTimeOfEvent() { return timeOfEvent; }
+    public void setTimeOfEvent(LocalDateTime timeOfEvent) { this.timeOfEvent = timeOfEvent; }
 }
