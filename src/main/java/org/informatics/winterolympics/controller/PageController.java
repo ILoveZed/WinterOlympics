@@ -46,8 +46,8 @@ public class PageController {
         return "manager/applications";
     }
 
-    @GetMapping("/manager/results")
-    public String managerResultsPage() {
-        return "manager/results";
+    @GetMapping("/results")
+    public String resultsPage() {
+        return "results";
     }
 }

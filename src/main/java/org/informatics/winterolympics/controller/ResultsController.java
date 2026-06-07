@@ -23,16 +23,6 @@ public class ResultsController {
         this.resultsService = resultsService;
     }
 
-    @GetMapping("/slalom/{slalomId}")
-    public ResponseEntity<SlalomResultsDto> getSlalomResults(@PathVariable Long slalomId) {
-        try {
-            return ResponseEntity.ok(resultsService.getSlalomResults(slalomId));
-        } catch (RuntimeException e) {
-            log.error("Get slalom results {} failed: {}", slalomId, e.getMessage());
-            return ResponseEntity.status(404).build();
-        }
-    }
-
     @PostMapping("/slalom/{slalomId}/run1")
     public ResponseEntity<SlalomResultsDto> saveSlalomRun1(
             @PathVariable Long slalomId,
@@ -56,16 +46,6 @@ public class ResultsController {
         } catch (Exception e) {
             log.error("Save slalom run2 {} failed: {}", slalomId, e.getMessage(), e);
             return ResponseEntity.status(500).build();
-        }
-    }
-
-    @GetMapping("/biathlon/{biathlonId}")
-    public ResponseEntity<BiathlonResultsDto> getBiathlonResults(@PathVariable Long biathlonId) {
-        try {
-            return ResponseEntity.ok(resultsService.getBiathlonResults(biathlonId));
-        } catch (RuntimeException e) {
-            log.error("Get biathlon results {} failed: {}", biathlonId, e.getMessage());
-            return ResponseEntity.status(404).build();
         }
     }
 

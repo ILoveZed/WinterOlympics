@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+<nav th:fragment="navbar">
+    <style>
+        nav {
+            background: linear-gradient(90deg, #0d1b6e, #1565c0);
+            color: #fff;
+            padding: 0 32px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .nav-brand {
+            font-size: 1.1rem; font-weight: 700; letter-spacing: 0.5px;
+            color: #fff; text-decoration: none;
+        }
+        .nav-right { display: flex; align-items: center; gap: 12px; }
+        .nav-link { color: #90caf9; text-decoration: none; font-size: 0.88rem; }
+        .nav-link:hover { color: #fff; }
+        .nav-btn {
+            background: rgba(255,255,255,0.15);
+            color: #fff; text-decoration: none;
+            padding: 6px 14px; border-radius: 6px;
+            font-size: 0.85rem; font-weight: 600;
+            border: 1px solid rgba(255,255,255,0.25);
+            cursor: pointer; transition: background 0.15s;
+        }
+        .nav-btn:hover { background: rgba(255,255,255,0.25); }
+        .nav-user {
+            color: #fff; text-decoration: none; font-size: 0.9rem;
+            font-weight: 600; display: flex; align-items: center; gap: 6px;
+        }
+        .nav-user::before { content: '👤'; font-size: 0.85rem; }
+        .nav-user:hover { color: #90caf9; }
+        .nav-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.2); }
+        .hidden { display: none !important; }
+    </style>
+
+    <a href="/" class="nav-brand">&#10052; Winter Olympics</a>
+
+    <div style="display:flex;align-items:center;gap:20px;">
+        <a href="/games" class="nav-link" style="font-size:0.9rem;">Games</a>
+        <a id="nb-applications" href="/manager/applications" class="nav-link hidden" style="font-size:0.9rem;">Applications</a>
+        <a href="/results" class="nav-link" style="font-size:0.9rem;">Results</a>
+    </div>
+
+    <div class="nav-right">
+        <a id="nb-admin"   href="/admin/users"   class="nav-btn hidden">Admin Panel</a>
+        <a id="nb-manager" href="/manager/games" class="nav-btn hidden">Manager Panel</a>
+        <div id="nb-divider" class="nav-divider hidden"></div>
+        <a id="nb-profile" href="/profile" class="nav-user hidden"></a>
+        <button id="nb-signout" class="nav-btn hidden" onclick="navSignOut()">Sign Out</button>
+
+        <span id="nb-guest" style="display:flex;align-items:center;gap:10px;">
+            <a href="/login"    class="nav-link">Login</a>
+            <a href="/register" class="nav-btn">Register</a>
+        </span>
+    </div>
+
+    <script>
+        (function () {
+            var token = localStorage.getItem('accessToken');
+            if (!token) return;
+            try {
+                var payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+                var username = payload.preferred_username || payload.sub;
+                var roles = (payload.resource_access && payload.resource_access['spring-api'] && payload.resource_access['spring-api'].roles) || [];
+
+                document.getElementById('nb-profile').textContent = username;
+                document.getElementById('nb-profile').classList.remove('hidden');
+                document.getElementById('nb-signout').classList.remove('hidden');
+                document.getElementById('nb-divider').classList.remove('hidden');
+                document.getElementById('nb-guest').style.display = 'none';
+
+                if (roles.indexOf('ADMIN') !== -1) {
+                    document.getElementById('nb-admin').classList.remove('hidden');
+                }
+                if (roles.indexOf('MANAGER') !== -1) {
+                    document.getElementById('nb-manager').classList.remove('hidden');
+                    document.getElementById('nb-applications').classList.remove('hidden');
+                }
+            } catch (e) {}
+        })();
+
+        function navSignOut() {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            window.location.href = '/login';
+        }
+    </script>
+</nav>
+</body>
+</html>

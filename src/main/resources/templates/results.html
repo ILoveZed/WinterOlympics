@@ -169,7 +169,7 @@
 
         <div id="placeholder">
             <div class="icon">🏅</div>
-            <p>Select a competition from the left to enter results.</p>
+            <p>Select a competition from the left to view results.</p>
         </div>
 
         <div id="results-panel" class="hidden">
@@ -188,18 +188,20 @@
                 <!-- ══ BIATHLON sections ══════════════════════════════════════ -->
                 <div id="biathlon-sections" class="hidden">
 
-                    <h3 class="section-title">Enter Results</h3>
-                    <div id="bno-athletes" class="no-athletes hidden">No accepted athletes for this competition.</div>
-                    <table class="entry-table hidden" id="biathlon-entry-table">
-                        <thead id="biathlon-entry-thead"></thead>
-                        <tbody id="biathlon-entry-tbody"></tbody>
-                    </table>
-                    <div class="save-area hidden" id="biathlon-save-area">
-                        <button class="btn-save" id="biathlon-save-btn" onclick="saveBiathlon()">Save Results</button>
-                        <span style="font-size:0.78rem;color:#90a4ae;">Times in seconds (e.g. 1823.50).</span>
+                    <div id="biathlon-entry-section" class="hidden">
+                        <h3 class="section-title">Enter Results</h3>
+                        <div id="bno-athletes" class="no-athletes hidden">No accepted athletes for this competition.</div>
+                        <table class="entry-table hidden" id="biathlon-entry-table">
+                            <thead id="biathlon-entry-thead"></thead>
+                            <tbody id="biathlon-entry-tbody"></tbody>
+                        </table>
+                        <div class="save-area hidden" id="biathlon-save-area">
+                            <button class="btn-save" id="biathlon-save-btn" onclick="saveBiathlon()">Save Results</button>
+                            <span style="font-size:0.78rem;color:#90a4ae;">Times in seconds (e.g. 1823.50).</span>
+                        </div>
+                        <hr class="section-divider">
                     </div>
 
-                    <hr class="section-divider">
                     <h3 class="section-title">Ranking</h3>
                     <div id="bno-results-msg" class="no-athletes">No results entered yet.</div>
                     <table class="result-table hidden" id="biathlon-ranking-table">
@@ -211,19 +213,21 @@
                 <!-- ══ SLALOM sections ═══════════════════════════════════════ -->
                 <div id="slalom-sections" class="hidden">
 
-                    <!-- Run 1 Entry -->
-                    <h3 class="section-title">Run 1 — Enter Times</h3>
-                    <div id="sno-athletes" class="no-athletes hidden">No accepted athletes for this competition.</div>
-                    <table class="entry-table hidden" id="slalom-run1-table">
-                        <thead id="slalom-run1-thead"></thead>
-                        <tbody id="slalom-run1-tbody"></tbody>
-                    </table>
-                    <div class="save-area hidden" id="slalom-run1-save-area">
-                        <button class="btn-save" id="run1-save-btn" onclick="saveRun1()">Save Run 1</button>
-                        <span style="font-size:0.78rem;color:#90a4ae;">Times in seconds (e.g. 54.32).</span>
+                    <!-- Run 1 Entry (manager only) -->
+                    <div id="slalom-run1-entry" class="hidden">
+                        <h3 class="section-title">Run 1 — Enter Times</h3>
+                        <div id="sno-athletes" class="no-athletes hidden">No accepted athletes for this competition.</div>
+                        <table class="entry-table hidden" id="slalom-run1-table">
+                            <thead id="slalom-run1-thead"></thead>
+                            <tbody id="slalom-run1-tbody"></tbody>
+                        </table>
+                        <div class="save-area hidden" id="slalom-run1-save-area">
+                            <button class="btn-save" id="run1-save-btn" onclick="saveRun1()">Save Run 1</button>
+                            <span style="font-size:0.78rem;color:#90a4ae;">Times in seconds (e.g. 54.32).</span>
+                        </div>
                     </div>
 
-                    <!-- Run 1 Ranking -->
+                    <!-- Run 1 Ranking (everyone) -->
                     <div id="slalom-run1-ranking" class="hidden">
                         <hr class="section-divider">
                         <h3 class="section-title">Run 1 Ranking</h3>
@@ -233,7 +237,7 @@
                         </table>
                     </div>
 
-                    <!-- Run 2 Entry -->
+                    <!-- Run 2 Entry (manager only) -->
                     <div id="slalom-run2-entry" class="hidden">
                         <hr class="section-divider">
                         <h3 class="section-title">Run 2 — Enter Times (Start Order: worst qualifier first)</h3>
@@ -247,7 +251,7 @@
                         </div>
                     </div>
 
-                    <!-- Final Ranking -->
+                    <!-- Final Ranking (everyone) -->
                     <div id="slalom-final-ranking" class="hidden">
                         <hr class="section-divider">
                         <h3 class="section-title">Final Ranking</h3>
@@ -265,7 +269,14 @@
 
 <script>
     const token = localStorage.getItem('accessToken');
-    if (!token) window.location.href = '/login';
+    let isManager = false;
+    if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+            const roles = (payload.resource_access && payload.resource_access['spring-api'] && payload.resource_access['spring-api'].roles) || [];
+            isManager = roles.indexOf('MANAGER') !== -1;
+        } catch (e) {}
+    }
 
     let currentType = null;
     let currentCompId = null;
@@ -341,12 +352,9 @@
         document.getElementById('panel-loading').classList.remove('hidden');
         document.getElementById('panel-content').classList.add('hidden');
 
-        const resp = await fetch('/api/manager/results/' + type + '/' + id, {
-            headers: { 'Authorization': 'Bearer ' + token }
-        });
+        const resp = await fetch('/api/public/results/' + type + '/' + id);
         document.getElementById('panel-loading').classList.add('hidden');
 
-        if (resp.status === 401) { window.location.href = '/login'; return; }
         if (!resp.ok) { showBanner('Failed to load competition results.'); return; }
 
         const data = await resp.json();
@@ -388,20 +396,27 @@
         const athletes      = data.athletes      || [];
         const run2Qualifiers = data.run2Qualifiers || 0;
 
-        // Run 1 entry: all accepted athletes
-        renderSlalomRun1Entry(athletes);
+        // Run 1 entry — managers only
+        if (isManager) {
+            document.getElementById('slalom-run1-entry').classList.remove('hidden');
+            renderSlalomRun1Entry(athletes);
+        } else {
+            document.getElementById('slalom-run1-entry').classList.add('hidden');
+        }
 
-        // Run 1 ranking: athletes that have run1Rank, sorted ascending
         const withRun1 = athletes.filter(a => a.run1Rank != null)
             .sort((x, y) => x.run1Rank - y.run1Rank);
         renderSlalomRun1Ranking(withRun1);
 
-        // Run 2 entry: qualified athletes in REVERSE run1Rank order (worst qualifier starts first)
+        // Run 2 entry — managers only, and only if there are qualifiers
         run2Athletes = athletes.filter(a => a.qualifiedForRun2)
             .sort((x, y) => y.run1Rank - x.run1Rank);
-        renderSlalomRun2Entry(run2Athletes);
+        if (isManager) {
+            renderSlalomRun2Entry(run2Athletes);
+        } else {
+            document.getElementById('slalom-run2-entry').classList.add('hidden');
+        }
 
-        // Final ranking: athletes with finalRank, sorted ascending
         const withFinal = athletes.filter(a => a.finalRank != null)
             .sort((x, y) => x.finalRank - y.finalRank);
         renderSlalomFinalRanking(withFinal);
@@ -491,34 +506,41 @@
         currentBiathlonData = data;
         const athletes = data.athletes || [];
 
-        const noMsg    = document.getElementById('bno-athletes');
-        const table    = document.getElementById('biathlon-entry-table');
-        const saveArea = document.getElementById('biathlon-save-area');
-        const thead    = document.getElementById('biathlon-entry-thead');
-        const tbody    = document.getElementById('biathlon-entry-tbody');
+        // Entry — managers only
+        const entrySection = document.getElementById('biathlon-entry-section');
+        if (isManager) {
+            entrySection.classList.remove('hidden');
+            const noMsg    = document.getElementById('bno-athletes');
+            const table    = document.getElementById('biathlon-entry-table');
+            const saveArea = document.getElementById('biathlon-save-area');
+            const thead    = document.getElementById('biathlon-entry-thead');
+            const tbody    = document.getElementById('biathlon-entry-tbody');
 
-        if (athletes.length === 0) {
-            noMsg.classList.remove('hidden');
-            table.classList.add('hidden');
-            saveArea.classList.add('hidden');
+            if (athletes.length === 0) {
+                noMsg.classList.remove('hidden');
+                table.classList.add('hidden');
+                saveArea.classList.add('hidden');
+            } else {
+                noMsg.classList.add('hidden');
+                table.classList.remove('hidden');
+                saveArea.classList.remove('hidden');
+                thead.innerHTML = `<tr><th>Athlete</th><th>Race Time (s)</th><th>Misses</th><th>Final Time</th></tr>`;
+                tbody.innerHTML = athletes.map(a => `
+                    <tr>
+                        <td><div class="ath-name">${escHtml(a.athleteName)}</div><div class="ath-user">${escHtml(a.username)}</div></td>
+                        <td><input type="number" step="0.01" min="0.01" class="time-input"
+                             id="race-${a.registrationId}"
+                             value="${a.raceTimeSeconds != null ? a.raceTimeSeconds : ''}"
+                             oninput="updateFinalTime(${a.registrationId})"></td>
+                        <td><input type="number" step="1" min="0" class="misses-input"
+                             id="misses-${a.registrationId}"
+                             value="${a.numberOfMisses != null ? a.numberOfMisses : ''}"
+                             oninput="updateFinalTime(${a.registrationId})"></td>
+                        <td class="computed-cell" id="final-${a.registrationId}">${a.finalTime != null ? formatTime(a.finalTime) : '—'}</td>
+                    </tr>`).join('');
+            }
         } else {
-            noMsg.classList.add('hidden');
-            table.classList.remove('hidden');
-            saveArea.classList.remove('hidden');
-            thead.innerHTML = `<tr><th>Athlete</th><th>Race Time (s)</th><th>Misses</th><th>Final Time</th></tr>`;
-            tbody.innerHTML = athletes.map(a => `
-                <tr>
-                    <td><div class="ath-name">${escHtml(a.athleteName)}</div><div class="ath-user">${escHtml(a.username)}</div></td>
-                    <td><input type="number" step="0.01" min="0.01" class="time-input"
-                         id="race-${a.registrationId}"
-                         value="${a.raceTimeSeconds != null ? a.raceTimeSeconds : ''}"
-                         oninput="updateFinalTime(${a.registrationId})"></td>
-                    <td><input type="number" step="1" min="0" class="misses-input"
-                         id="misses-${a.registrationId}"
-                         value="${a.numberOfMisses != null ? a.numberOfMisses : ''}"
-                         oninput="updateFinalTime(${a.registrationId})"></td>
-                    <td class="computed-cell" id="final-${a.registrationId}">${a.finalTime != null ? formatTime(a.finalTime) : '—'}</td>
-                </tr>`).join('');
+            entrySection.classList.add('hidden');
         }
 
         const ranked   = athletes.filter(a => a.rank != null);
@@ -555,7 +577,7 @@
             ? formatTime(race + misses * currentPenaltySeconds) : '—';
     }
 
-    // ── Save ──────────────────────────────────────────────────────────────────
+    // ── Save (manager only) ───────────────────────────────────────────────────
 
     async function saveRun1() {
         const btn = document.getElementById('run1-save-btn');
